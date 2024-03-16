@@ -1,0 +1,71 @@
+########### 3 Axle Tractor Vehicle Parameters ###########
+#
+# Author: 
+#   Tahn Thawainin, AU GAVLAB
+# Description:
+#   Vehicle parameters for a 3 axle tractor. 
+#   All values are in SI units.
+#
+#########################################################
+
+#%%
+###### Powertrain Specs ######
+
+#Transmission gear ratios
+n_t: [11.06, 10.2, 7.062, 4.984, 3.966, 2.831, 2.03, 1.47, 1, 0.74]
+#Differential gear ratio
+n_d: 4.4
+#Inertias
+j_e: 2.75
+j_t: 0.13
+j_diff: 0.028
+j_wheel: 1700
+#Damping
+b_e: 2.21
+b_t: 1.4
+b_diff: 9.7
+#Torque limit
+torque_limit_max: 3.e+3
+torque_limit_min: 0
+
+#%%
+###### Aerodynamic Specs ######
+
+#Frontal area
+front_area: 7.8016
+#Drag coefficient
+cd: 0.79
+
+#%%
+###### Wheel Specs ######
+
+#Tire cornering stiffness
+cs: [3.922730292168247e+05, 1.817771488938941e+05, 1.817771488938941e+05]
+#Effective wheel radius
+r_eff: 0.510
+#Rolling resistance coefficient
+u_rr: 0.0041
+
+#%%
+###### Mass/Lengths/Inertial Specs ######
+
+#Tractor mass
+m_s1: 6493      #Sprung mass
+m_us_A1: 570    #Unsprung mass of 1st axle
+m_us_A2: 785    #Unsprung mass of 2nd axle
+m_us_A3: 785    #Unsprung mass of 3rd axle
+
+#Tractor distances
+a: 1.384       #Dist from tractor CG to front axle
+b: 3.616       #Dist from tractor CG to 1st rear axle
+b2: 4.886      #Dist from tractor CG to 2nd rear axle
+c: 4.251       #Dist from tractor CG to hitch point
+
+#Tractor radii of gyration
+Rx1: 1.029
+Ry1: 1.829
+Rz1: 1.740
+
+j_xy1: 0             # products of inertia
+j_xz1: 130
+j_yz1: 0
