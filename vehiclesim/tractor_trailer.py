@@ -140,14 +140,14 @@ class TractorTrailer:
         self.vp = vp
 
 
-    def latModel(self, steer_ang, Vx, dt):
+    def latModel(self, steer_ang, Vx):
         """
         `Description`:
             Lateral Bicycle Model Simulation. 
             (Source: S.M. Wolfe, "Heavy Truck Modeling and Estimation for Vehicle-to-Vehicle Collision Avoidance Systems")
         ------------
         `Input(s)`:
-            *{add inputs}
+            steer_ang:  steering angle [rad]
         ------------
         `Output(s)`:
             *{add outputs}
@@ -216,16 +216,16 @@ class TractorTrailer:
 
         #Forcing matrix
         F = np.array([
-            [math.cos(steer_ang)*C1],
-            [vp.a*math.cos(steer_ang)*C1],
+            [np.cos(steer_ang)*C1],
+            [vp.a*np.cos(steer_ang)*C1],
             [0],
             [0],
             [0]
         ])
 
         #Continuous state space model
-        Ac = np.linalg.inv(M) @ K     #State transition matrix
-        Bc = np.linalg.inv(M) @ F     #Input matrix
+        Ac = np.linalg.inv(M) @ K   #State transition matrix
+        Bc = np.linalg.inv(M) @ F   #Input matrix
         Cc = np.identity(5)         #Observation matrix
         Dc = 0                      #Measurement input matrix
 
