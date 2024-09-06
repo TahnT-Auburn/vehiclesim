@@ -9,8 +9,9 @@ from vehiclesim.imu_sim import *
 if __name__ == '__main__':
     
     #Call instance
-    veh_config_file = 'veh_config/tractor_trailer/5a_config.yaml'
-    ts_data_file = 'data/Run103.csv'
+    # veh_config_file = 'tests/veh_config/tractor_trailer/5a_config.yaml'
+    veh_config_file = 'C:\\Users\\pzt0029\\Documents\\Vehicle_Simulations\\vehiclesim\\tests\\veh_config\\tractor_trailer\\5a_config.yaml'
+    ts_data_file = 'C:\\Users\\pzt0029\\Documents\\Vehicle_Simulations\\vehiclesim\\tests\\data\\Run103.csv'
     test_instance = TractorTrailer(veh_config_file=veh_config_file, config_type='5a', ts_data_file=ts_data_file)
 
     #Vehicle config
@@ -29,9 +30,9 @@ if __name__ == '__main__':
     Vx = ts_data.Vx*(1e3/3600)
 
     #Initialize
-    sysc = list()
-    x = list()
-    xdot = list()
+    sysc = []
+    x = []
+    xdot = []
     Vy = np.zeros(L)
     yaw_rate = np.zeros(L)
     yaw = np.zeros(L)
@@ -47,7 +48,7 @@ if __name__ == '__main__':
     
     for i in range(L):
 
-        sysc_ = test_instance.latModel(steer_ang=steer_ang[i], Vx=Vx[i], dt=dt)
+        sysc_, sysd_ = test_instance.latModel(steer_ang=steer_ang[i], Vx=Vx[i], dt=dt)
         sysc.append(sysc_)
 
         u = steer_ang[i]
@@ -70,25 +71,25 @@ if __name__ == '__main__':
     y3 = ts_data.Yaw
     plot = Plotters()
     
-#     plot.matPlot(sig_count='multi', 
-#             signals=[[x,ts_data.Ax], [x,ts_data.Ay], [x,ts_data.Az]],
-#             label=['Linear Accel IMU (Tractor)', x.name, y.name],
-#             legend=['Ax','Ay','Az'])
+    plot.matPlot(sig_count='multi', 
+            signals=[[x,ts_data.Ax], [x,ts_data.Ay], [x,ts_data.Az]],
+            label=['Linear Accel IMU (Tractor)', x.name, y.name],
+            legend=['Ax','Ay','Az'])
     
-#     plot.matPlot(sig_count='multi', 
-#             signals=[[x,ts_data.AVx], [x,ts_data.AVy], [x,ts_data.AVz]],
-#             label=['Angular Velocity IMU (Tactor)', x.name, y.name],
-#             legend=['Roll','Pitch','Yaw'])
+    plot.matPlot(sig_count='multi', 
+            signals=[[x,ts_data.AVx], [x,ts_data.AVy], [x,ts_data.AVz]],
+            label=['Angular Velocity IMU (Tactor)', x.name, y.name],
+            legend=['Roll','Pitch','Yaw'])
     
-#     plot.matPlot(sig_count='multi', 
-#             signals=[[x,ts_data.Ax_2], [x,ts_data.Ay_2], [x,ts_data.Az_2]],
-#             label=['Linear Accel IMU (Trailer)', x.name, y.name],
-#             legend=['Ax','Ay','Az'])
+    plot.matPlot(sig_count='multi', 
+            signals=[[x,ts_data.Ax_2], [x,ts_data.Ay_2], [x,ts_data.Az_2]],
+            label=['Linear Accel IMU (Trailer)', x.name, y.name],
+            legend=['Ax','Ay','Az'])
     
-#     plot.matPlot(sig_count='multi', 
-#             signals=[[x,ts_data.AVx_2], [x,ts_data.AVy_2], [x,ts_data.AVz_2]],
-#             label=['Angular Velocity IMU (Trailer)', x.name, y.name],
-#             legend=['Roll','Pitch','Yaw'])
+    plot.matPlot(sig_count='multi', 
+            signals=[[x,ts_data.AVx_2], [x,ts_data.AVy_2], [x,ts_data.AVz_2]],
+            label=['Angular Velocity IMU (Trailer)', x.name, y.name],
+            legend=['Roll','Pitch','Yaw'])
 
 #----- IMU SIM TEST -----#
 
@@ -112,8 +113,8 @@ AVx_bf2 = np.deg2rad(ts_data.AVx_2)
 AVy_bf2 = np.deg2rad(ts_data.AVy_2)
 AVz_bf2 = np.deg2rad(ts_data.AVz_2)
 
-
-imu_test = imu_sim(1,Ax_bf1,Ay_bf1,Az_bf1,AVx_bf1,AVy_bf1,AVz_bf1,L)
+# ***UPDATE FUNCTION INPUTS***
+# imu_test = imu_sim(1,Ax_bf1.to_numpy(),Ay_bf1.to_numpy(),Az_bf1.to_numpy(),AVx_bf1.to_numpy(),AVy_bf1.to_numpy(),AVz_bf1.to_numpy(),L)
 
 #Plotting
 # fig, axs = plt.subplots(2)

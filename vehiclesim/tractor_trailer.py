@@ -18,7 +18,6 @@
 
 ################################################################
 """
-
 import pandas as pd
 import numpy as np
 import math
@@ -140,29 +139,30 @@ class TractorTrailer:
         self.vp = vp
 
 
-    def latModel(self, steer_ang, Vx):
+    def latModel(self, steer_ang, Vx, dt):
         """
-        `Description`:
-            Lateral Bicycle Model Simulation. 
-            (Source: S.M. Wolfe, "Heavy Truck Modeling and Estimation for Vehicle-to-Vehicle Collision Avoidance Systems")
-        ------------
-        `Input(s)`:
+        Lateral Bicycle Model Simulation. 
+        (Source: S.M. Wolfe, "Heavy Truck Modeling and Estimation for Vehicle-to-Vehicle Collision Avoidance Systems")
+        
+        Parameters:
             steer_ang:  steering angle [rad]
-        ------------
-        `Output(s)`:
-            *{add outputs}
+            Vx: longitudinal velocity [m/s]
+            dt: sampling rate (for discretization)
+        Returns:
+            sysc:   continuous time state space model
+            sysd:   discrete time state space model
         
         """
-        #Vehicle parameters
+        # vehicle parameters
         vp = self.vp
-        #Cornering stiffness coefficients
+        # cornering stiffness coefficients
         C1 = vp.cs[0]
         C2 = vp.cs[1]
         C3 = vp.cs[2]
         C4 = vp.cs[3]
         C5 = vp.cs[4]
         
-        #Inertial matrix
+        # inertial matrix
         M = np.array([
             [vp.m_t1 + vp.m_t2, -vp.m_t2*(vp.c + vp.d), Vx*(vp.m_t1 + vp.m_t2), -vp.m_t2*vp.d, 0],
 
@@ -177,13 +177,13 @@ class TractorTrailer:
             [0, 0, 0, 0, 1]
             ])
         
-        #Stiffness matrix
+        # stiffness matrix
         k11 = (1/Vx)*(-C1 - C2 - C3 - C4 - C5)
     
         k12 = (1/Vx)*(-C1*vp.a + C2*vp.b1 + C3*vp.b2 + C4*(vp.c + vp.f1) \
             + C5*(vp.c + vp.f2))
         
-        k14 = (1/Vx)*(vp.f1*C4 + vp.f1*C5)
+        k14 = (1/Vx)*(vp.f1*C4 + vp.f2*C5)
         
         k15 = C4 + C5
         
@@ -214,7 +214,7 @@ class TractorTrailer:
             [k41, k42, 0, k44, k45],
             [0, 0, 0, 1, 0]])
 
-        #Forcing matrix
+        # forcing matrix
         F = np.array([
             [np.cos(steer_ang)*C1],
             [vp.a*np.cos(steer_ang)*C1],
@@ -223,12 +223,14 @@ class TractorTrailer:
             [0]
         ])
 
-        #Continuous state space model
+        # continuous state space model
         Ac = np.linalg.inv(M) @ K   #State transition matrix
         Bc = np.linalg.inv(M) @ F   #Input matrix
         Cc = np.identity(5)         #Observation matrix
         Dc = 0                      #Measurement input matrix
-
         sysc = ss(Ac,Bc,Cc,Dc)
+        
+        # discrete state space model
+        sysd = c2d(sysc, dt, 'zoh')
 
-        return sysc
+        return sysc, sysd
