@@ -1,0 +1,90 @@
+########### 5 Axle Tractor Vehicle Parameters ###########
+#
+# Author: 
+#   Tahn Thawainin, AU GAVLAB
+# Description:
+#   Vehicle parameters for a 5 axle tractor. 
+#   All values are in SI units.
+#
+#########################################################
+
+
+###### Powertrain Specs ######
+
+#Transmission gear ratios
+n_t: [11.06, 10.2, 7.062, 4.984, 3.966, 2.831, 2.03, 1.47, 1, 0.74]
+#Differential gear ratio
+n_d: 4.4
+#Inertias
+j_e: 2.75
+j_t: 0.13
+j_diff: 0.028
+j_wheel: 1700
+#Damping
+b_e: 2.21
+b_t: 1.4
+b_diff: 9.7
+#Torque limit
+torque_limit_max: 3.e+3
+torque_limit_min: 0
+
+###### Aerodynamic Specs ######
+
+#Frontal area
+front_area: 7.8016
+#Drag coefficient
+cd: 0.79
+
+###### Wheel Specs ######
+
+# Tire cornering stiffness
+# cs: [3.922730292168247e+05, 1.817771488938941e+05, 1.817771488938941e+05, 1.206555470490843e+05, 1.206555470490843e+05]
+cs: [4.e+5, 2.25e+5, 2.25e+5, 1.2e+5, 1.2e+5]
+# cs: [4.e+5, 2.5e+5, 2.5e+5, 1.5e+5, 1.5e+5]
+#Effective wheel radius
+r_eff: 0.510
+#Rolling resistance coefficient
+u_rr: 0.0041
+
+###### Mass/Lengths/Inertial Specs ######
+
+#tractor mass
+m_s1: 6493    # tractor sprung mass
+m_us_A1: 570  # unsprung mass of 1st axel
+m_us_A2: 785  # unsprung mass of 2nd axel
+m_us_A3: 785  # unspring mass of 3rd axel
+# m_t1: m_s1 + m_us_A1 + m_us_A2 + m_us_A3 # total tractor mass
+
+#tractor distances
+a: 1.384      # dist from tractor CG to front axle
+b1: 3.616     # dist from tractor CG to 1st rear axle
+b2: 4.886     # dist from tractor CG to 2nd rear axle
+c: 4.251      # dist from tractor CG to hitch point
+
+#tractor radii of gyration
+Rx1: 1.029
+Ry1: 1.829
+Rz1: 1.740
+
+j_xy1: 0       # products of inertia
+j_xz1: 130
+j_yz1: 0
+
+#trailer mass
+m_s2: 3196    # trailer sprung mass
+m_us_A4: 665  # unsprung mass of 4th axel
+m_us_A5: 665  # unsprung mass of 5th axel
+
+#trailer distances
+d: 7.303
+f1: 13.124
+f2: 14.412
+
+#trailer radii of gyration
+Rx2: 1.765
+Ry2: 7.322
+Rz2: 7.505
+
+j_xy2: 0       # products of inertia
+j_xz2: 0
+j_yz2: 0

@@ -37,12 +37,38 @@ cd: 0.79
 
 ###### Wheel Specs ######
 
-#Tire cornering stiffness
-cs: [3.922730292168247e+05, 1.817771488938941e+05, 1.817771488938941e+05, 1.206555470490843e+05, 1.206555470490843e+05]
+# Tire cornering stiffness
+# cs: [3.922730292168247e+05, 1.817771488938941e+05, 1.817771488938941e+05, 1.206555470490843e+05, 1.206555470490843e+05]
+# cs: [4.e+5, 2.25e+5, 2.25e+5, 1.2e+5, 1.2e+5]
+cs: [4.e+5, 3.e+5, 3.e+5, 3.e+5, 3.e+5]
+# cs: [4.e+5, 2.5e+5, 2.5e+5, 1.5e+5, 1.5e+5]
 #Effective wheel radius
 r_eff: 0.510
 #Rolling resistance coefficient
 u_rr: 0.0041
+
+##### Suspension Specs #####
+# track widths
+# vp.tw_A1 = 2.03;    # 1st axle
+# vp.tw_A2 = 1.863;   # 2nd axle
+# vp.tw_A3 = 1.863;   # 3rd axle
+# vp.tw_A4 = 1.863;   # 4th axle
+# vp.tw_A5 = 1.863;   # 5th axle
+
+#  tractor spring rate (N/m)
+ks1: 550.e+3
+
+# tractor damper (Ns/m)
+c1: 25.e+3
+
+#  trailer spring rate (N/m)
+ks2: 700.e+3
+
+# trailer damper (Ns/m)
+c2: 30.e+3
+
+# suspension track width (m)
+ts: 1
 
 ###### Mass/Lengths/Inertial Specs ######
 
@@ -70,6 +96,7 @@ j_yz1: 0
 
 #trailer mass
 m_s2: 3196    # trailer sprung mass
+# m_s2: 20000
 m_us_A4: 665  # unsprung mass of 4th axel
 m_us_A5: 665  # unsprung mass of 5th axel
 

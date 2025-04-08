@@ -104,6 +104,8 @@ def imu_sim(grade,accel,gyro,L):
         # Biases
         bias_accel = [1e-4, 1e-4, 1e-4] #[m/s^2]
         bias_gyro = [5e-9, 5e-9, 5e-9]  #[rad/s]
+        # bias_accel = [0,0,0]
+        # bias_gyro = [0,0,0]
 
     #Add gravity to Az signal
     Az = Az + (-9.81)
