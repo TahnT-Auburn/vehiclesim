@@ -1,7 +1,9 @@
 import numpy as np
 from box import Box
 
-def imu_sim(grade,accel,gyro,L):
+import numpy as np
+
+def simulate_imu(grade,accel,gyro,L):
     """
     #################### IMU Sim ####################
 
@@ -57,8 +59,10 @@ def imu_sim(grade,accel,gyro,L):
         sigma_gyro = [0.005, 0.005, 0.005]
 
         # Biases [x, y, z]
-        bias_accel = [0.10, 0.10, 0.10] #[m/s^2]
-        bias_gyro = [5e-4, 5e-4, 5e-4]  #[rad/s]
+        # bias_accel = [0.10, 0.10, 0.10] #[m/s^2]
+        # bias_gyro = [5e-4, 5e-4, 5e-4]  #[rad/s]
+        bias_accel = [0.1, 0.1, 0.1] #[m/s^2]
+        bias_gyro = [5e-3, 5e-3, 5e-3]  #[rad/s]
 
     #------ Tactical -----%
     elif (grade == 2):
@@ -130,10 +134,10 @@ def imu_sim(grade,accel,gyro,L):
 
     #Generate IMU data struct
     imu = Box({'grade': 'NaN',\
-                'linaccel': 'NaN',\
-                'angvel': 'NaN',\
-                'covar': {'linaccel': 'NaN', 'angvel': 'NaN'},\
-                'bias': {'linaccel': 'NaN', 'angvel': 'NaN'}})
+                'accel': 'NaN',\
+                'gyro': 'NaN',\
+                'covar': {'accel': 'NaN', 'angvel': 'NaN'},\
+                'bias': {'gyro': 'NaN', 'angvel': 'NaN'}})
     
     if (grade == 1):
         imu.grade = 'Consumer/Automotive'

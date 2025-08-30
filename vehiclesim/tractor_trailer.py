@@ -21,6 +21,8 @@
 import pandas as pd
 import numpy as np
 import math
+import os
+import scipy.io
 from control.matlab import *
 from python_utilities.parsers_class import Parsers
 
@@ -38,7 +40,7 @@ class TractorTrailer:
             * config_type:  Vehicle configuration type (Options: '3a', '5a') [Default = '5a']
                             type: <str>
 
-            * ts_data_file: TruckSim csv data file
+            * ts_data_file: TruckSim mat or csv data file
                             type: <str>
         """
 
@@ -70,20 +72,31 @@ class TractorTrailer:
         ------------
         `Input(s)`:
             ts_data_file: str, optional.
-                Directory to TruckSim data file.
+                Directory to TruckSim data file (mat or csv).
         ------------
-        `Output(s)`:
-            None
+        `Returns(s)`:
+            ts_data
         """
 
         if ts_data_file is None:
             ts_data_file = self.ts_data_file
 
-        #Parse TruckSim csv data
-        ts_data = Parsers().csvParser(ts_data_file)
+        # check if input file is a .mat file
+        _, ext = os.path.splitext(ts_data_file)
+        if ext == '.mat':
+            mat = scipy.io.loadmat(ts_data_file)
+            data = {}
+            for key, value in mat.items():
+                if not key.startswith('__'): # ignore metadata
+                    data[key] = value.flatten()
+            ts_data = pd.DataFrame(data)
+        
+        else:
+            #Parse TruckSim csv data
+            ts_data = Parsers().csvParser(ts_data_file)
 
-        #Eliminate empty spaces
-        ts_data.columns = pd.Index(pd.Series(ts_data.columns).apply(lambda x: x.strip())) #strip extra empty spaces
+            #Eliminate empty spaces
+            ts_data.columns = pd.Index(pd.Series(ts_data.columns).apply(lambda x: x.strip())) #strip extra empty spaces
 
         #Generate self.ts_data
         self.ts_data = ts_data

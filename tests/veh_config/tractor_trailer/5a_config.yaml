@@ -39,9 +39,9 @@ cd: 0.79
 
 # Tire cornering stiffness
 # cs: [3.922730292168247e+05, 1.817771488938941e+05, 1.817771488938941e+05, 1.206555470490843e+05, 1.206555470490843e+05]
-# cs: [4.e+5, 2.25e+5, 2.25e+5, 1.2e+5, 1.2e+5]
-cs: [4.e+5, 3.e+5, 3.e+5, 3.e+5, 3.e+5]
-# cs: [4.e+5, 2.5e+5, 2.5e+5, 1.5e+5, 1.5e+5]
+cs: [4.e+5, 2.25e+5, 2.25e+5, 1.2e+5, 1.2e+5]
+# cs: [4.e+5, 3.e+5, 3.e+5, 3.e+5, 3.e+5]
+# cs: [2.e+5, 3.e+5, 3.e+5, 3.e+5, 3.e+5]
 #Effective wheel radius
 r_eff: 0.510
 #Rolling resistance coefficient
@@ -95,8 +95,8 @@ j_xz1: 130
 j_yz1: 0
 
 #trailer mass
-m_s2: 3196    # trailer sprung mass
-# m_s2: 20000
+# m_s2: 3196    # trailer sprung mass
+m_s2: 20000
 m_us_A4: 665  # unsprung mass of 4th axel
 m_us_A5: 665  # unsprung mass of 5th axel
 

@@ -40,14 +40,14 @@ TODO:
 
 #%%
 # set globals
-MAT_FILE = 'C:\\Users\\pzt0029\\Documents\\Data\\Trucks\\2025_03_07\\2025_03_07_a2_sensors\\mat\\a2_sensors_2025_03_07_02.mat'
+MAT_FILE = 'C:\\Users\\pzt0029\\Documents\\Data\\Trucks\\2025_03_07\\2025_03_07_a2_sensors\\mat\\a2_sensors_2025_03_07_01.mat'
 veh_config_file = 'C:\\Users\\pzt0029\\Documents\\Vehicle_Simulations\\vehiclesim\\tests\\veh_config\\tractor_trailer\\5a_config.yaml'
 
-time_range = [60*0,60*20] #NOTE: [start_time, end_time] in seconds
-# time_range = None
+# time_range = [60*0,60*20] #NOTE: [start_time, end_time] in seconds
+time_range = None
 vx_thresh = 2
 
-sync_etals = False
+sync_etals = True
 
 #%%
 # helper functions
@@ -178,7 +178,7 @@ trailer_etal = mat['trailer_etal']
 
 # parse j1939
 # steer angle (deg)->(rad)
-steer_angle = np.deg2rad((1/25)*(np.squeeze(j1939[0]['steerAngle'][0]['data'][0,0])))
+steer_angle = -np.deg2rad((1/25)*(np.squeeze(j1939[0]['steerAngle'][0]['data'][0,0])))
 steer_time = np.squeeze(j1939[0]['steerAngle'][0]['time'][0,0]['zeroed'][0,0])
 steer_dt = round(np.mean(np.diff(steer_time)), 4)
 
@@ -196,7 +196,7 @@ tractor_imu = {'linAccel': {'x': tractor_etal[0]['imu'][0]['linAccel'][0,0][0],
                             'z': tractor_etal[0]['imu'][0]['linAccel'][0,0][2]},
                'angvel': {'x': tractor_etal[0]['imu'][0]['angvel'][0,0][0],
                           'y': tractor_etal[0]['imu'][0]['angvel'][0,0][1],
-                          'z': tractor_etal[0]['imu'][0]['angvel'][0,0][2]}
+                          'z': -tractor_etal[0]['imu'][0]['angvel'][0,0][2]}
 }
 # tractor etalin position
 tractor_position = ecef2lla(x=tractor_etal[0]['position'][0][0],
@@ -207,14 +207,19 @@ tractor_position = {'lat': tractor_position[0,:],
                     'alt': tractor_position[2,:]}
 # tractor etalin orientation
 tractor_orientation = quat2eul(tractor_etal[0]['orientation'][0].transpose()).transpose()
-tractor_orientation = {'roll': wrap_to_pi(tractor_orientation[0]),
-                       'pitch': wrap_to_pi(tractor_orientation[1]),
-                       'yaw': wrap_to_pi(tractor_orientation[2])}
-# tractor etalin velocity
+tractor_orientation = {'roll': tractor_orientation[0],
+                       'pitch': tractor_orientation[1],
+                       'yaw': np.pi/2 - np.unwrap(tractor_orientation[2])}
+# tractor etalin velocities
 tractor_velocity = tractor_etal[0]['linTwist'][0]
 tractor_velocity = {'x': tractor_velocity[0],
-                    'y': tractor_velocity[1],
+                    'y': -tractor_velocity[1],
                     'z': tractor_velocity[2]}
+tractor_ang_velocity = tractor_etal[0]['angTwist'][0]
+tractor_ang_velocity = {'x': tractor_ang_velocity[0],
+                        'y': tractor_ang_velocity[1],
+                        'z': -tractor_ang_velocity[2]}
+
 # tractor etalin time
 tractor_etal_time = np.squeeze(tractor_etal[0]['time'][0]['zeroed'][0,0])
 # tractor etalin dt
@@ -223,11 +228,11 @@ tractor_etal_dt = round(np.mean(np.diff(tractor_etal_time)), 6)
 
 # trailer etalin imu
 trailer_imu = {'linAccel': {'x': trailer_etal[0]['imu'][0]['linAccel'][0,0][0],
-                            'y': trailer_etal[0]['imu'][0]['linAccel'][0,0][1],
+                            'y': -trailer_etal[0]['imu'][0]['linAccel'][0,0][1],
                             'z': trailer_etal[0]['imu'][0]['linAccel'][0,0][2]},
                'angvel': {'x': trailer_etal[0]['imu'][0]['angvel'][0,0][0],
                           'y': trailer_etal[0]['imu'][0]['angvel'][0,0][1],
-                          'z': trailer_etal[0]['imu'][0]['angvel'][0,0][2]}
+                          'z': -trailer_etal[0]['imu'][0]['angvel'][0,0][2]}
 }
 # trailer etalin position
 trailer_position = ecef2lla(x=trailer_etal[0]['position'][0][0],
@@ -238,14 +243,19 @@ trailer_position = {'lat': trailer_position[0,:],
                     'alt': trailer_position[2,:]}
 # trailer etalin orientation
 trailer_orientation = quat2eul(trailer_etal[0]['orientation'][0].transpose()).transpose()
-trailer_orientation = {'roll': wrap_to_pi(trailer_orientation[0]),
-                       'pitch': wrap_to_pi(trailer_orientation[1]),
-                       'yaw': wrap_to_pi(trailer_orientation[2])}
+trailer_orientation = {'roll': trailer_orientation[0],
+                       'pitch': trailer_orientation[1],
+                       'yaw': np.pi/2 - np.unwrap(trailer_orientation[2])}
 # trailer etalin velocity
 trailer_velocity = trailer_etal[0]['linTwist'][0]
 trailer_velocity = {'x': trailer_velocity[0],
-                    'y': trailer_velocity[1],
+                    'y': -trailer_velocity[1],
                     'z': trailer_velocity[2]}
+trailer_ang_velocity = trailer_etal[0]['angTwist'][0]
+trailer_ang_velocity = {'x': trailer_ang_velocity[0],
+                        'y': trailer_ang_velocity[1],
+                        'z': -trailer_ang_velocity[2]}
+
 # trailer etalin time
 trailer_etal_time = np.squeeze(trailer_etal[0]['time'][0]['zeroed'][0,0])
 # trailer etalin dt
@@ -280,6 +290,10 @@ if sync_etals:
     trailer_velocity['x'] = signal.resample(trailer_velocity['x'], len(trailer_etal_time))
     trailer_velocity['y'] = signal.resample(trailer_velocity['y'], len(trailer_etal_time))
     trailer_velocity['z'] = signal.resample(trailer_velocity['z'], len(trailer_etal_time))
+
+    trailer_ang_velocity['x'] = signal.resample(trailer_ang_velocity['x'], len(trailer_etal_time))
+    trailer_ang_velocity['y'] = signal.resample(trailer_ang_velocity['y'], len(trailer_etal_time))
+    trailer_ang_velocity['z'] = signal.resample(trailer_ang_velocity['z'], len(trailer_etal_time))
 
     # sync tractor imus with time
     tractor_imu['linAccel']['x'] = signal.resample(tractor_imu['linAccel']['x'], len(tractor_etal_time))
@@ -336,6 +350,10 @@ if time_range is not None:
     tractor_velocity['x'] = tractor_velocity['x'][time_mask]
     tractor_velocity['y'] = tractor_velocity['y'][time_mask]
     tractor_velocity['z'] = tractor_velocity['z'][time_mask]
+    
+    tractor_ang_velocity['x'] = tractor_ang_velocity['x'][time_mask]
+    tractor_ang_velocity['y'] = tractor_ang_velocity['y'][time_mask]
+    tractor_ang_velocity['z'] = tractor_ang_velocity['z'][time_mask]
 
     tractor_position['lat'] = tractor_position['lat'][time_mask]
     tractor_position['lon'] = tractor_position['lon'][time_mask]
@@ -359,6 +377,10 @@ if time_range is not None:
     trailer_velocity['x'] = trailer_velocity['x'][time_mask]
     trailer_velocity['y'] = trailer_velocity['y'][time_mask]
     trailer_velocity['z'] = trailer_velocity['z'][time_mask]
+
+    trailer_ang_velocity['x'] = trailer_ang_velocity['x'][time_mask]
+    trailer_ang_velocity['y'] = trailer_ang_velocity['y'][time_mask]
+    trailer_ang_velocity['z'] = trailer_ang_velocity['z'][time_mask]
 
     trailer_position['lat'] = trailer_position['lat'][time_mask]
     trailer_position['lon'] = trailer_position['lon'][time_mask]
@@ -409,6 +431,30 @@ ax3 = plt.subplot(313)
 ax3.plot(tractor_etal_time/60, np.rad2deg(tractor_orientation['yaw']))
 ax3.set_ylabel('Yaw')
 ax3.set_xlabel('')
+plt.tight_layout()
+plt.show()
+
+# trailer orientation
+ax1 = plt.subplot(311)
+ax1.plot(trailer_etal_time/60, np.rad2deg(trailer_orientation['roll']))
+ax1.set_ylabel('Roll')
+ax2 = plt.subplot(312)
+ax2.plot(trailer_etal_time/60, np.rad2deg(trailer_orientation['pitch']))
+ax2.set_ylabel('Pitch')
+ax3 = plt.subplot(313)
+ax3.plot(trailer_etal_time/60, np.rad2deg(trailer_orientation['yaw']))
+ax3.set_ylabel('Yaw')
+ax3.set_xlabel('')
+plt.tight_layout()
+plt.show()
+
+# articulation angle
+ax1 = plt.subplot(211)
+ax1.plot(tractor_etal_time/60, np.rad2deg(etal_hitch))
+ax1.set_ylabel('Hitch Angle')
+ax2 = plt.subplot(212)
+ax2.plot(tractor_etal_time/60, np.rad2deg(etal_hitch_rate))
+ax2.set_ylabel('Hitch Rate')
 plt.tight_layout()
 plt.show()
 
@@ -463,11 +509,11 @@ x_ = np.array([[tractor_velocity['y'][0]],
                [etal_hitch_rate[0]],
                [etal_hitch[0]]])
 
-vy_ol[0] = x_[0]
-yaw_rate_ol[0] = x_[1]
-yaw_ol[0] = x_[2]
-hitch_rate_ol[0] = x_[3]
-hitch_ol[0] = x_[4]
+vy_ol[0] = x_[0].item()
+yaw_rate_ol[0] = x_[1].item()
+yaw_ol[0] = x_[2].item()
+hitch_rate_ol[0] = x_[3].item()
+hitch_ol[0] = x_[4].item()
 
 for i in range(0,L-1):
 
@@ -500,11 +546,11 @@ for i in range(0,L-1):
         x_ = x_ + xdot_*dt
         x_ol.append(x_)
 
-        vy_ol[i+1] = x_[0]
-        yaw_rate_ol[i+1] = x_[1]
-        yaw_ol[i+1] = wrap_to_pi(x_[2])
-        hitch_rate_ol[i+1] = x_[3]
-        hitch_ol[i+1] = wrap_to_pi(x_[4])
+        vy_ol[i+1] = x_[0].item()
+        yaw_rate_ol[i+1] = x_[1].item()
+        yaw_ol[i+1] = x_[2].item()
+        hitch_rate_ol[i+1] = x_[3].item()
+        hitch_ol[i+1] = x_[4].item()
 
 ol_states = [vy_ol, yaw_rate_ol, yaw_ol, hitch_rate_ol, hitch_ol]
 
@@ -534,11 +580,11 @@ x_ = np.array([[tractor_velocity['y'][0]],
                [etal_hitch_rate[0]],
                [etal_hitch[0]]])
 
-vy_cl[0] = x_[0]
-yaw_rate_cl[0] = x_[1]
-yaw_cl[0] = x_[2]
-hitch_rate_cl[0] = x_[3]
-hitch_cl[0] = x_[4]
+vy_cl[0] = x_[0].item()
+yaw_rate_cl[0] = x_[1].item()
+yaw_cl[0] = x_[2].item()
+hitch_rate_cl[0] = x_[3].item()
+hitch_cl[0] = x_[4].item()
 
 P_ = np.diag([2.5, 1e-3, 2, 0.3, 8])
 P.append(P_)
@@ -634,11 +680,11 @@ for k in range(0,L-1):
     K.append(K_)
     innov.append(innov_)
 
-    vy_cl[k+1] = x_[0]
-    yaw_rate_cl[k+1] = x_[1]
-    yaw_cl[k+1] = wrap_to_pi(x_[2])
-    hitch_rate_cl[k+1] = x_[3]
-    hitch_cl[k+1] = wrap_to_pi(x_[4])
+    vy_cl[k+1] = x_[0].item()
+    yaw_rate_cl[k+1] = x_[1].item()
+    yaw_cl[k+1] = x_[2].item()
+    hitch_rate_cl[k+1] = x_[3].item()
+    hitch_cl[k+1] = x_[4].item()
 
 cl_states = [vy_cl, yaw_rate_cl, yaw_cl, hitch_rate_cl, hitch_cl]
 
@@ -687,13 +733,13 @@ for j in range(0,L-1):
 # convert tangent frame to LLA
 ref_lla = [tractor_position['lat'][0], tractor_position['lon'][0], tractor_position['alt'][0]]
 
-enu_mod = [Y_mod, X_mod, np.zeros(len(X_mod))]
+enu_mod = [X_mod, Y_mod, np.zeros(len(X_mod))]
 lla_mod = enu2lla(enu=enu_mod, ref_lla=ref_lla)
 
-enu_kf = [Y_kf, X_kf, np.zeros(len(X_kf))]
+enu_kf = [X_kf, Y_kf, np.zeros(len(X_kf))]
 lla_kf = enu2lla(enu=enu_kf, ref_lla=ref_lla)
 
-enu_sens = [Y_sens, X_sens, np.zeros(len(X_sens))]
+enu_sens = [X_sens, Y_sens, np.zeros(len(X_sens))]
 lla_sens = enu2lla(enu=enu_sens, ref_lla=ref_lla)
 
 #%%
@@ -731,16 +777,16 @@ x_ = np.array([[0],
                [0],
                [0]])
 
-X_nav[0] = x_[0]
-vx_nav[0] = x_[1]
-Y_nav[0] = x_[2]
-vy_nav[0] = x_[3]
-yaw_rate_nav[0] = x_[4]
-yaw_nav[0] = x_[5]
-hitch_rate_nav[0] = x_[6]
-hitch_nav[0] = x_[7]
-bias_ay_nav[0] = x_[8]
-bias_ar_nav[0] = x_[9]
+X_nav[0] = x_[0].item()
+vx_nav[0] = x_[1].item()
+Y_nav[0] = x_[2].item()
+vy_nav[0] = x_[3].item()
+yaw_rate_nav[0] = x_[4].item()
+yaw_nav[0] = x_[5].item()
+hitch_rate_nav[0] = x_[6].item()
+hitch_nav[0] = x_[7].item()
+bias_ay_nav[0] = x_[8].item()
+bias_ar_nav[0] = x_[9].item()
 
 P_ = np.diag(np.array([1.10708923e+01, 9.90195136e-03, 1.37791859e+01, 1.76029376e+01,
        1.36849423e-03, 1.01000014e+02, 6.32907841e-01, 3.12263142e-01,
@@ -862,33 +908,41 @@ for k in range(0,L-1):
     K_nav.append(K_)
     innov_nav.append(innov_)
 
-    X_nav[k+1] = x_[0]
-    vx_nav[k+1] = x_[1]
-    Y_nav[k+1] = x_[2]
-    vy_nav[k+1] = x_[3]
-    yaw_rate_nav[k+1] = x_[4]
-    yaw_nav[k+1] = x_[5]
-    hitch_rate_nav[k+1] = x_[6]
-    hitch_nav[k+1] = x_[7]
-    bias_ay_nav[k+1] = x_[8]
-    bias_ar_nav[k+1] = x_[9]
+    X_nav[k+1] = x_[0].item()
+    vx_nav[k+1] = x_[1].item()
+    Y_nav[k+1] = x_[2].item()
+    vy_nav[k+1] = x_[3].item()
+    yaw_rate_nav[k+1] = x_[4].item()
+    yaw_nav[k+1] = x_[5].item()
+    hitch_rate_nav[k+1] = x_[6].item()
+    hitch_nav[k+1] = x_[7].item()
+    bias_ay_nav[k+1] = x_[8].item()
+    bias_ar_nav[k+1] = x_[9].item()
 
 nav_states = [X_nav, vx_nav, Y_nav, vy_nav, yaw_rate_nav, yaw_nav, hitch_rate_nav, hitch_nav, bias_ay_nav, bias_ar_nav]
 
-enu_nav = [Y_nav, X_nav, np.zeros(len(X_nav))]
+enu_nav = [X_nav, Y_nav, np.zeros(len(X_nav))]
 lla_nav = enu2lla(enu=enu_nav, ref_lla=ref_lla)
 
 # %%
 # plots
+# truth_states = [
+#     tractor_velocity['y'],
+#     np.rad2deg(tractor_imu['angvel']['z']),
+#     np.rad2deg(tractor_orientation['yaw']),
+#     np.rad2deg(etal_hitch_rate),
+#     np.rad2deg(etal_hitch),
+# ]
+
 truth_states = [
     tractor_velocity['y'],
-    np.rad2deg(tractor_imu['angvel']['z']),
+    np.rad2deg(tractor_ang_velocity['z']),
     np.rad2deg(tractor_orientation['yaw']),
     np.rad2deg(etal_hitch_rate),
     np.rad2deg(etal_hitch),
 ]
 
-nav_states_veh = [vy_nav, yaw_rate_nav, wrap_to_pi(yaw_nav), hitch_rate_nav, hitch_nav]
+nav_states_veh = [vy_nav, yaw_rate_nav, yaw_nav, hitch_rate_nav, hitch_nav]
 
 # call plotter functions
 plot_states(tractor_etal_time, truth_states, ol_states, cl_states, nav_states_veh, t_factor=60)
@@ -915,20 +969,20 @@ folium.Marker(
     icon=folium.Icon(icon='stop', color='red')
 ).add_to(map)
 
-# cords_mod = [(lat,lon) for lat,lon in zip(lla_mod[0,:], lla_mod[1,:])]
-# folium.PolyLine(cords_mod, color='red').add_to(map)
+cords_mod = [(lat,lon) for lat,lon in zip(lla_mod[0,:], lla_mod[1,:])]
+folium.PolyLine(cords_mod, color='red').add_to(map)
 
-# folium.Marker(
-#     location=[cords_mod[0][0], cords_mod[0][1]],
-#     tooltip='Start',
-#     icon=folium.Icon(icon='play', color='green')
-# ).add_to(map)
+folium.Marker(
+    location=[cords_mod[0][0], cords_mod[0][1]],
+    tooltip='Start',
+    icon=folium.Icon(icon='play', color='green')
+).add_to(map)
 
-# folium.Marker(
-#     location=[cords_mod[-1][0], cords_mod[-1][1]],
-#     tooltip='Model End',
-#     icon=folium.Icon(icon='stop', color='red')
-# ).add_to(map)
+folium.Marker(
+    location=[cords_mod[-1][0], cords_mod[-1][1]],
+    tooltip='Model End',
+    icon=folium.Icon(icon='stop', color='red')
+).add_to(map)
 
 # model coordinates
 cords_kf = [(lat,lon) for lat,lon in zip(lla_kf[0,:], lla_kf[1,:])]

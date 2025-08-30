@@ -18,6 +18,7 @@ python-utilities = {path="C:\\Users\\pzt0029\\Documents\\Python_Utilities\\pytho
 # python-utilities = {git="https://github.com/TahnT-Auburn/python_utilities.git"}                           #Git
 filter-tools = {path ="C:\\Users\\pzt0029\\Documents\\Filter_Tools\\filter_tools", develop=true} #Local
 trailer-pose-network = {path="C:\\Users\\pzt0029\\Documents\\Networks\\trailer_pose_network", develop=true}
+nav-tools = {path="C:\\Users\\pzt0029\\Documents\\Nav_Tools\\nav_tools", develop=true}
 seaborn = "^0.13.2"
 scipy = "^1.14.0"
 pyproj = "^3.7.1"
