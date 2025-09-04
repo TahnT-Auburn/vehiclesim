@@ -95,8 +95,8 @@ j_xz1: 130
 j_yz1: 0
 
 #trailer mass
-# m_s2: 3196    # trailer sprung mass
-m_s2: 20000
+m_s2: 3196    # trailer sprung mass
+# m_s2: 20000
 m_us_A4: 665  # unsprung mass of 4th axel
 m_us_A5: 665  # unsprung mass of 5th axel
 
