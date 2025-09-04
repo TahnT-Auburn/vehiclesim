@@ -182,3 +182,37 @@ def plot_pos(t, truth_pos, imu_pos, imu_pos_error, model_pos, mod_pos_error, kf_
     ax2.tick_params(axis='y',labelsize=13)
     plt.tight_layout
     plt.show()
+    
+def plot_error_and_sigma_bounds(t, state_errors:list, P:list, std_factor:int=1):
+    """Plots the errors from a list of state errors and sigma bounds.
+
+    Args:
+        state_errors (list[tuple]): A list of errors for each state and label.
+        P (list): A list of covariance matrices. Note that the length of this list should match the length of each element in state_errors.
+        std_factor (int, optional): Standard deviation bounds factor. Defaults to 1.
+    """
+    # Get standard deviations for P
+    stds = []
+    for P_ in P:
+        stds.append(np.sqrt(np.diag(P_)))
+    
+    # Plot each state error and bounds
+    for state_num, state_error in enumerate(state_errors):
+        # Get standard deviations for current state
+        state_std = []
+        for stds_ in stds:
+            state_std.append(stds_[state_num])
+            
+        state_label = state_error[1]
+        state_unit = state_error[2]
+        
+        fig, ax = plt.subplots()
+        ax.plot(t, state_error[0], label=state_label+' Error')
+        ax.plot(t, state_error[0] + std_factor*state_std, c='k', label='+/-'+str(std_factor)+' sigma bounds')
+        ax.plot(t, state_error[0] - std_factor*state_std, c='k')
+        ax.set_xlabel('Time [s]')
+        ax.set_ylabel(state_label + ' Error' + ' ' + state_unit)
+        ax.tick_params(axis='x',labelsize=13)
+        ax.tick_params(axis='y',labelsize=13)
+        plt.tight_layout
+        plt.show()

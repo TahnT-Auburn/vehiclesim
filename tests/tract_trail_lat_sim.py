@@ -16,9 +16,10 @@
 #%%
 import numpy as np
 import matplotlib
-matplotlib.use('ipympl')
+# matplotlib.use('ipympl')
 import matplotlib.pyplot as plt
 import time
+from tqdm import tqdm
 
 import torch
 import torch.nn as nn
@@ -33,7 +34,8 @@ from vehiclesim.tractor_trailer import TractorTrailer
 from filter_tools.estimators import Estimators
 from nav_tools.imu_mechanization import *
 from vehiclesim.imu_sim import *
-from lat_sim_plotter import *
+from postprocessing.lat_sim_plotter import *
+from postprocessing.calc_error_statics import *
 from genNavMatrices import *
 
 from trailer_pose_network.data_setup import TractorTrailerData
@@ -42,10 +44,10 @@ from trailer_pose_network.data_setup import TractorTrailerData
 
 # call instances
 # double lane change
-veh_config_file = 'C:\\Users\\pzt0029\\Documents\\Vehicle_Simulations\\vehiclesim\\tests\\veh_config\\tractor_trailer\\5a_config.yaml'
+veh_config_file = 'C:\\Users\\Tahn\\SoftDevel\\vehiclesim\\tests\\veh_config\\tractor_trailer\\5a_config.yaml'
 # ts_data_file = 'C:\\Users\\pzt0029\\Documents\\Vehicle_Simulations\\vehiclesim\\tests\\data\\30_mph_step_180.csv'
-ts_data_file = 'D:\\TestingData\\simulation\\raw\\FF\\FF1\\FF1_TS.mat'
-camera_file = 'D:\\TestingData\\simulation\\processed\\FF\\FF1\\FF1_testing.csv'
+ts_data_file = 'D:\\TestingData\\simulation\\raw\\FF\\FF2\\FF2_TS.mat'
+camera_file = 'D:\\TestingData\\simulation\\processed\\FF\\FF2\\FF2.csv'
 tract_trail = TractorTrailer(veh_config_file=veh_config_file, config_type='5a', ts_data_file=ts_data_file)
 
 # load vehicle parameters
@@ -112,8 +114,8 @@ plt.show()
 
 #%%
 # Set up network configurations
-NET = 'mobilenetv2'
-WEIGHTS = 'C:\\Users\\pzt0029\\Documents\\Networks\\trailer_pose_network\\trailer_pose_network\\weights\\simulation\\finetune_transfer_learning\\full\\'+NET+'_weights.pth'
+# NET = 'mobilenetv2'
+WEIGHTS = 'C:\\Users\\Tahn\\SoftDevel\\vehiclesim\\tests\weights\\mobilenetv2_weights.pth'
 USECAMS = False
 
 if USECAMS:
@@ -144,8 +146,8 @@ if USECAMS:
     model.load_state_dict(state_dict)
 
     # setup dataloader
-    dataset = TrailerData(csv_file=camera_file,
-                          output_states_idx=2,
+    dataset = TractorTrailerData(csv_file=camera_file,
+                          output_states='hitch',
                           transform=transforms.Compose([
                             transforms.ToPILImage(),
                             transforms.Resize((512,512)),
@@ -162,14 +164,16 @@ if USECAMS:
         def __len__(self):
             return len(self.data_source) - 1
     
-    loader = DataLoader(dataset, batch_size=1, shuffle=False)
+    BATCH_SIZE = 1
+    NUM_WORKERS = 0
+    loader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS)
 
     # prepredict model estimates
     start_time = time.time()
     hitch_est_array = []
     with torch.no_grad():
         model.eval()
-        for k, (img,y) in enumerate(loader):
+        for k, (img,y) in enumerate(tqdm(loader)):
             # start_time = time.time()
             # call neural network for TAA measurement
             img = img.to(device=device, dtype=torch.float32)
@@ -242,7 +246,7 @@ ax2.plot(t, ts_data.Pitch, label='TruckSim')
 ax2.set_ylabel('Pitch')
 ax3 = plt.subplot(313)
 ax3.plot(t, np.rad2deg(mech_att[2,:]), label='Mechanized')
-ax3.plot(t, ts_data.Yaw, label='TruckSim')
+ax3.plot(t, wrap_to(ts_data.Yaw, '180'), label='TruckSim')
 ax3.set_ylabel('Yaw')
 plt.tight_layout()
 plt.show()
@@ -704,11 +708,39 @@ ax2.set_ylabel('Yaw Rate Bias')
 plt.tight_layout()
 plt.show()
 
-plot_pos(t, truth_pos, 
-        imu_pos=imu_pos, imu_pos_error =imu_pos_error,
-        model_pos=mod_pos, mod_pos_error=mod_pos_error,
-        kf_pos=kf_pos,  kf_pos_error=kf_pos_error,
-        navkf_pos=nav_pos, navkf_pos_error=nav_pos_error)
+# plot_pos(t, truth_pos, 
+#         imu_pos=imu_pos, imu_pos_error =imu_pos_error,
+#         model_pos=mod_pos, mod_pos_error=mod_pos_error,
+#         kf_pos=kf_pos,  kf_pos_error=kf_pos_error,
+#         navkf_pos=nav_pos, navkf_pos_error=nav_pos_error)
 # plot_pos(t, truth_pos_2, model_pos=mod_pos_2, kf_pos=kf_pos_2, mod_pos_error=mod_pos_error_2, kf_pos_error=kf_pos_error_2)
 
 #%%
+# prepare list of states for plots
+
+truth_states = [
+    [ts_data.XCG_SM, 'X Position', '[m]'],
+    [ts_data.Vx*(1e3/3600), 'Body Frame Vx', '[m/s]'],
+    [ts_data.YCG_SM, 'Y Position', '[m]'],
+    [ts_data.Vy*(1e3/3600), 'Body Frame Vy', '[m/s]'],
+    [ts_data.AVz, 'Yaw Rate', '[deg/s]'],
+    [ts_data.Yaw, 'Yaw Angle', '[deg]'],
+    [ts_data.ArtR_H, 'Hitch Rate', '[deg/s]'],
+    [ts_data.Art_H, 'Hitch Angle', '[deg]'],
+    
+]
+
+filter_states = [
+    [X_nav, 'X Position', '[m]'],
+    [vx_nav, 'Body Frame Vx', '[m/s]'],
+    [Y_nav, 'Y Position', '[m]'],
+    [vy_nav, 'Body Frame Vy', '[m/s]'],
+    [np.rad2deg(yaw_rate_nav), 'Yaw Rate', '[deg/s]'],
+    [np.rad2deg(yaw_nav), 'Yaw Angle', '[deg]'],
+    [np.rad2deg(hitch_rate_nav), 'Hitch Rate', '[deg/s]'],
+    [np.rad2deg(hitch_nav), 'Hitch Angle', '[deg]'],
+]
+
+# Get state errors
+state_errors = calc_error_statics(truth_states, filter_states)
+plot_error_and_sigma_bounds(t, state_errors, P_nav, std_factor=1)
