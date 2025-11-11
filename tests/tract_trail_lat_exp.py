@@ -41,6 +41,7 @@ TODO:
 #%%
 # set globals
 MAT_FILE = 'C:\\Users\\pzt0029\\Documents\\Data\\Trucks\\2025_03_07\\2025_03_07_a2_sensors\\mat\\a2_sensors_2025_03_07_01.mat'
+# MAT_FILE = 'D:\\Tahn\\6_19_25\\mat\\synced\\original\\6_19_25_01.mat'
 veh_config_file = 'C:\\Users\\pzt0029\\Documents\\Vehicle_Simulations\\vehiclesim\\tests\\veh_config\\tractor_trailer\\5a_config.yaml'
 
 # time_range = [60*0,60*20] #NOTE: [start_time, end_time] in seconds
@@ -710,7 +711,6 @@ X_kf = np.zeros(L)
 Y_kf = np.zeros(L)
 X_kf[0] = 0
 Y_kf[0] = 0
-
 X_sens = np.zeros(L)
 Y_sens = np.zeros(L)
 X_sens[0] = 0
@@ -873,7 +873,7 @@ for k in range(0,L-1):
 
     # imu measurements
     z = np.array([[vx_input[k+1]],
-                  [tractor_imu['linAccel']['y'][k+1]],
+                  [tractor_imu['linAccel']['y'][k+1] ],
                   [tractor_imu['angvel']['z'][k+1]]])
     
     # warm up for initial P

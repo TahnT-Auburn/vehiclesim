@@ -33,6 +33,7 @@ from torch.utils.data import DataLoader, TensorDataset, Sampler
 from vehiclesim.tractor_trailer import TractorTrailer
 from filter_tools.estimators import Estimators
 from nav_tools.imu_mechanization import *
+from nav_tools.nav_utilities import *
 from vehiclesim.imu_sim import *
 from postprocessing.lat_sim_plotter import *
 from postprocessing.calc_error_statics import *
@@ -44,7 +45,8 @@ from trailer_pose_network.data_setup import TractorTrailerData
 
 # call instances
 # double lane change
-veh_config_file = 'C:\\Users\\Tahn\\SoftDevel\\vehiclesim\\tests\\veh_config\\tractor_trailer\\5a_config.yaml'
+# veh_config_file = 'C:\\Users\\Tahn\\SoftDevel\\vehiclesim\\tests\\veh_config\\tractor_trailer\\5a_config.yaml'
+veh_config_file = 'C:\\Users\\pzt0029\\Documents\\Vehicle_Simulations\\vehiclesim\\tests\\veh_config\\tractor_trailer\\5a_config.yaml'
 # ts_data_file = 'C:\\Users\\pzt0029\\Documents\\Vehicle_Simulations\\vehiclesim\\tests\\data\\30_mph_step_180.csv'
 ts_data_file = 'D:\\TestingData\\simulation\\raw\\FF\\FF2\\FF2_TS.mat'
 camera_file = 'D:\\TestingData\\simulation\\processed\\FF\\FF2\\FF2.csv'
@@ -635,8 +637,8 @@ for k in range(0,L-1):
 
         # imu measurements
         z = np.array([[vx[k+1]],
-                    [tract_imu.accel[1][k+1]],
-                    [tract_imu.gyro[2][k+1]]])
+                    [tract_imu.accel[1][k+1] - float(x_[8])],
+                    [tract_imu.gyro[2][k+1] - float(x_[9])]])
         
         # warm up for initial P
         if k == 0:          
@@ -708,11 +710,11 @@ ax2.set_ylabel('Yaw Rate Bias')
 plt.tight_layout()
 plt.show()
 
-# plot_pos(t, truth_pos, 
-#         imu_pos=imu_pos, imu_pos_error =imu_pos_error,
-#         model_pos=mod_pos, mod_pos_error=mod_pos_error,
-#         kf_pos=kf_pos,  kf_pos_error=kf_pos_error,
-#         navkf_pos=nav_pos, navkf_pos_error=nav_pos_error)
+plot_pos(t, truth_pos, 
+        imu_pos=imu_pos, imu_pos_error =imu_pos_error,
+        model_pos=mod_pos, mod_pos_error=mod_pos_error,
+        kf_pos=kf_pos,  kf_pos_error=kf_pos_error,
+        navkf_pos=nav_pos, navkf_pos_error=nav_pos_error)
 # plot_pos(t, truth_pos_2, model_pos=mod_pos_2, kf_pos=kf_pos_2, mod_pos_error=mod_pos_error_2, kf_pos_error=kf_pos_error_2)
 
 #%%
