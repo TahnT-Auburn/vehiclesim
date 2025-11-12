@@ -18,7 +18,7 @@ from genNavMatrices import *
 CSV = 'D:\\Tahn\\6_19_25\\csv\\raw\\original\\01\\01.csv'   
 df = pd.read_csv(CSV, dtype={'SUBSET':str})
 # df = df[500:-1].reset_index()
-veh_config_file = 'C:\\Users\\pzt0029\\Documents\\Vehicle_Simulations\\vehiclesim\\tests\\veh_config\\tractor_trailer\\5a_config.yaml'
+veh_config_file = 'C:\\Users\\Tahn\\SoftDevel\\vehiclesim\\vehiclesim\\vehicle_configs\\5a_config.yaml'
 tract_trail_model = TractorTrailer(veh_config_file, '5a')
 
 L = len(df)
@@ -186,7 +186,7 @@ def run_nav_kf():
             #               [0,0,0,0,0,0,0,1,0],
             #               [0,0,0,0,0,0,0,0,1]])
             
-            B = np.matrix(np.zeros((9,1)))
+            B = np.zeros((9,1))
 
             # generate full observation matrix
             _, _, H = genNavMatrices(A_veh=np.eye(5), B_veh=np.zeros((5,1)), vx=float(x_[1]), yaw=float(x_[5][0]), dt=dt)
@@ -475,7 +475,6 @@ def run_model():
     hitch_ol[0] = x_[4].item()
 
     for k in range(0,L-1):
-
         # if abs(axle_steer[k]) <= steer_thresh:
         #     steer_ang[k] = axle_steer[k]
         # zero velocity update

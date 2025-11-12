@@ -95,8 +95,8 @@ def genNavMatrices(A_veh, B_veh, vx, yaw, dt, use_cams:bool=False):
         #               [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         #               [0, 0, 0, 0, 1, 0, 0, 0, 0, 1]])
        
-    A = np.asmatrix(A)
-    B = np.asmatrix(B)
-    H = np.asmatrix(H)
+    # A = np.asmatrix(A)
+    # B = np.asmatrix(B)
+    # H = np.asmatrix(H)
 
     return A, B, H
