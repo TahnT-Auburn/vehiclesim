@@ -27,10 +27,14 @@ class NavInertialMeasModule():
             H (NDArray): Measurement observation matrix.
             R (NDArray): Measurement noise matrix.
         """
-        z = np.array([[vx],
-                      [yaw_rate]])
-        H = np.array([[0, 0, 1, 0, 0, 0, 0, 0, 0],
-                      [0, 0, 0, 0, 1, 0, 0, 0, 1]])
+        z = np.array([
+            [vx],
+            [yaw_rate]
+        ])
+        H = np.array([
+            [0, 0, 1, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 1, 0, 0, 0, 1]
+        ])
         R = self.error_model
         
         return z, H, R

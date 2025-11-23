@@ -18,12 +18,13 @@ class NavFullStateModule():
         (8) Trailer hitch angle (rad)
         (9) Yaw rate bias (rad/s)
     """
-    def __init__(self, error_model):
+    def __init__(self, error_model, vehicle_config):
         """
         Standard 9-state navigation state module.
 
         Args:
             error_model (NDArray): State error model. Equivalent to process noise matrix, Q.
+            vehicle_config (str): String path to vehicle configuration file.
         """
         self.tract_trail_model = TractorTrailer(VEH_CONFIG)
         self.error_model = error_model
@@ -57,7 +58,7 @@ class NavFullStateModule():
         
         bias_relation_matrix = np.array([[0],
                                         [0],
-                                        [dt],
+                                        [dt], # dt
                                         [0],
                                         [0]])
         

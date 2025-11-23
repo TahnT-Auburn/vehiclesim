@@ -2,14 +2,16 @@
 import numpy as np
 import pandas as pd
 import matplotlib
-# matplotlib.use('ipympl')
+matplotlib.use('ipympl')
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 from pyproj import Transformer
 from pyproj import CRS
 import folium
 
 from vehiclesim.tractor_trailer import TractorTrailer
+from postprocessing.standard_state_est_plotter import standard_state_est_plotter
 from filter_tools.estimators import Estimators
 from genNavMatrices import *
 
@@ -125,6 +127,7 @@ def run_nav_kf():
 
     P_ = np.diag(np.array([1.10708923e+01, 9.90195136e-03, 1.37791859e+01, 1.76029376e+01,
         1.36849423e-03, 1.01000014e+02, 6.32907841e-01, 3.12263142e-01, 1.37416405e-03]))
+    x_nav.append(x_)
     P_nav.append(P_)
 
     # process noise
@@ -144,7 +147,7 @@ def run_nav_kf():
     # generate a KF instance
     kfnav = Estimators(n=9,m=2)
 
-    for k in range(0,L-1):
+    for k in tqdm(range(0,L-1)):
         # process noise
         Q = np.diag([2,                     # X
                     0.001,                    # vx    
@@ -154,7 +157,7 @@ def run_nav_kf():
                     0.01,                  # yaw
                     0.001,                  # hitch_rate
                     0.01,                  # hitch
-                    1e-4])              # bias ar
+                    1e-6])              # bias ar
         # measurement noise
         R = np.diag([1e-3, 1e-2])
 
@@ -194,7 +197,7 @@ def run_nav_kf():
         # === Regular Time Update Setup ===
         else:
             # call vehicle state model
-            _, sysd_ = tract_trail_model.latModel(steer_ang=steer_can[k+1], Vx=vx_can[k+1], dt=dt)
+            _, sysd_ = tract_trail_model.latModel(steer_ang=steer_can[k+1], Vx=float(x_[1]), dt=dt)
             A = sysd_.A
             B = sysd_.B
 
@@ -278,7 +281,8 @@ def run_nav_kf():
         'hitch_rate_nav':np.rad2deg(hitch_rate_nav),
         'hitch_nav':np.rad2deg(hitch_nav),
         'bias_ar_nav': bias_ar_nav,
-        }
+    }
+    # filter_states = x_nav
     return filter_states
 
 
@@ -552,50 +556,55 @@ if __name__ == '__main__':
         'hitch_rate_truth':np.rad2deg(df["hitch_rate"]),
         'hitch_truth':np.rad2deg(df["hitch"])}
     
+    # postprocessing
+    # x_plot = np.array(filter_states).squeeze().transpose().tolist()
+    # x_truth_plot = [df["Y"], df["X"], vx_can, vy_etal, yaw_rate_etal, yaw_etal, hitch_rate_etal, hitch_etal]
+    # standard_state_est_plotter(x_plot, x_truth_plot, t, interactive=True)
+    
     plt.figure
-    plt.plot(filter_states["X_nav"], filter_states["Y_nav"])
     plt.plot(truth_states["X_truth"], truth_states["Y_truth"])
+    plt.plot(filter_states["X_nav"], filter_states["Y_nav"])
     plt.title("NED Position")
-    plt.legend(["KF", "Truth"])
+    plt.legend(["Truth", "KF"])
     plt.axis("equal")
     plt.tight_layout()
     plt.show()
 
     plt.figure
     plt.subplot(211)
-    plt.plot(t,filter_states["vx_nav"])
     plt.plot(t,truth_states["vx_truth"])
+    plt.plot(t,filter_states["vx_nav"])
     plt.title("Vx")
-    plt.legend(["KF", "Truth"])
+    plt.legend(["Truth", "KF"])
     plt.subplot(212)
-    plt.plot(t,filter_states["vy_nav"])
     plt.plot(t,truth_states["vy_truth"])
+    plt.plot(t,filter_states["vy_nav"])
     plt.title("Vy")
     plt.tight_layout()
     plt.show()
 
     plt.figure
     plt.subplot(211)
-    plt.plot(t,filter_states["yaw_nav"])
     plt.plot(t,truth_states["yaw_truth"])
+    plt.plot(t,filter_states["yaw_nav"])
     plt.title("Yaw")
-    plt.legend(["KF", "Truth"])
+    plt.legend(["Truth", "KF"])
     plt.subplot(212)
-    plt.plot(t,filter_states["yaw_rate_nav"])
     plt.plot(t,truth_states["yaw_rate_truth"])
+    plt.plot(t,filter_states["yaw_rate_nav"])
     plt.title("Yaw Rate")
     plt.tight_layout()
     plt.show()
 
     plt.figure
     plt.subplot(211)
-    plt.plot(t,filter_states["hitch_nav"])
     plt.plot(t,truth_states["hitch_truth"])
+    plt.plot(t,filter_states["hitch_nav"])
     plt.title("Htich")
-    plt.legend(["KF", "Truth"])
+    plt.legend(["Truth", "KF"])
     plt.subplot(212)
-    plt.plot(t,filter_states["hitch_rate_nav"])
     plt.plot(t,truth_states["hitch_rate_truth"])
+    plt.plot(t,filter_states["hitch_rate_nav"])
     plt.title("Hitch Rate")
     plt.tight_layout()   
     plt.show()

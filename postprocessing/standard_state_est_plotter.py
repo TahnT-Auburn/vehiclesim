@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-def standard_state_est_plotter(x, x_truth, t):
+def standard_state_est_plotter(x, x_truth, t, interactive:bool=False):
     """
     Generates plots for the standard 9-state estimates vs truth and their errors.
 
@@ -9,7 +9,11 @@ def standard_state_est_plotter(x, x_truth, t):
         x (list): List of state estimates.
         x_truth (list): List of state truths.
         t (list): Time.
+        interactive (bool, optional). Switch between interactive or non-interactive plots. Deafult is False. 
     """
+    if interactive:
+        import matplotlib
+        matplotlib.use('ipympl')
     N = x[0]
     E = x[1]
     vx = x[2]
@@ -35,6 +39,7 @@ def standard_state_est_plotter(x, x_truth, t):
     ax1.plot(E_truth,N_truth)
     ax1.plot(E,N)
     ax1.axis('equal')
+    ax1.legend(['Truth','Est'])
     ax1.set_ylabel('Northing [m]')
     ax1.set_xlabel('Easting [m]')
     abs_error = compute_abs_pos_error((E_truth, N_truth), (E,N))
