@@ -8,6 +8,8 @@ from decimal import Decimal
 from vehiclesim.state_modules.NavFullStateModule import NavFullStateModule
 from vehiclesim.state_modules.NavZuptStateModule import NavZuptStateModule
 from vehiclesim.measurement_modules.NavInertialMeasModule import NavInertialMeasModule
+from vehiclesim.measurement_modules.NavZuptMeasModule import NavZuptMeasModule
+
 from filter_tools.estimators import Estimators
 
 from postprocessing.standard_state_est_plotter import standard_state_est_plotter
@@ -45,25 +47,6 @@ P_ = []
 innov_ = []
 K_ = []
 
-t_ = [] # DELETE LATER
-t_.append(t[0])
-N_truth = []
-E_truth = []
-vx_truth = []
-vy_truth = []
-yaw_truth = []
-yaw_rate_truth = []
-hitch_truth = []
-hitch_rate_truth = []
-N_truth.append(N_etal[0])
-E_truth.append(E_etal[0])
-vx_truth.append(vx_can[0])
-vy_truth.append(vy_etal[0])
-yaw_truth.append(yaw_etal[0])
-yaw_rate_truth.append(yaw_rate_etal[0])
-hitch_truth.append(hitch_etal[0])
-hitch_rate_truth.append(hitch_rate_etal[0])
-
 # initialize
 x = np.array([
     [0],
@@ -98,37 +81,54 @@ standard_state_module = NavFullStateModule(
 )
 zupt_state_module = NavZuptStateModule(
     error_model=np.diag([
-        2,# N
-        2,# E
-        0.001,# vx    
-        0.01,# vy
-        0.001,# yaw rate
-        0.01,# yaw
-        0.001,# hitch_rate
-        0.01,# hitch
+        1e-3,# N
+        1e-3,# E
+        1e-3,# vx    
+        1e-3,# vy
+        1e-4,# yaw rate
+        1e-3,# yaw
+        1e-4,# hitch_rate
+        1e-3,# hitch
         1e-6 # bias ar
     ]),
 )
 inertial_measurement_module = NavInertialMeasModule(
     error_model=np.diag([
         1e-3,# vx_can
-        1e-2 # imu_gyro_z
+        5e-3 # imu_gyro_z
     ]),
+)
+zupt_measurement_module = NavZuptMeasModule(
+    error_model=np.diag([
+        1e-3,
+        1e-3
+    ])
 )
 estimators = Estimators(n=9 ,m=2)
 
 # filter loop
+vx_last_set = False  
 for k in tqdm(range(0,L-1)):
+    # use last vel if nan
+    if np.isnan(vx_can[k+1]):
+        if not vx_last_set:
+            vx_last = float(vx_can[k])
+            vx_last_set = True  
+        vx_can.iloc[k+1] = vx_last 
     # zupt condition
     if vx_can[k+1] <= vx_thresh:
         PHI, G, Q = zupt_state_module.generate_state_model()
+        # model input
+        u = np.array([0])
+        # zupt measurement model
+        z, H, R = zupt_measurement_module.generate_meas_model()
     # standard state model
     else:
         PHI, G, Q = standard_state_module.generate_state_model(steer_can[k+1], x, dt)
-    # model input
-    u = np.array([steer_can[k+1]]) # single element array for matrix operation
-    # measurement model
-    z, H, R = inertial_measurement_module.generate_meas_model(vx_can[k+1], imu_gyro_z[k+1])
+        # model input
+        u = np.array([steer_can[k+1]]) # single element array for matrix operation
+        # measurement model
+        z, H, R = inertial_measurement_module.generate_meas_model(vx_can[k+1], imu_gyro_z[k+1])
     # kalman filter core
     x, P, K, innov = estimators.kf(
         T=dt,
@@ -143,36 +143,18 @@ for k in tqdm(range(0,L-1)):
         P=P,
         x=x
     )
+    if np.isnan(x).any():
+        print(f"Nan(s) detected in state vector x: {x}")
     # store variables
-    if Decimal(str(t[k+1])) % Decimal(str(0.1)) == 0:
-        x_.append(x)
-        P_.append(P)
-        K_.append(K)
-        innov_.append(innov)
-        t_.append(t[k+1])
-        
-        # truths DELETE LATER
-        N_truth.append(N_etal[k+1])
-        E_truth.append(E_etal[k+1])
-        vx_truth.append(vx_can[k+1])
-        vy_truth.append(vy_etal[k+1])
-        yaw_truth.append(yaw_etal[k+1])
-        yaw_rate_truth.append(yaw_rate_etal[k+1])
-        hitch_truth.append(hitch_etal[k+1])
-        hitch_rate_truth.append(hitch_rate_etal[k+1])
-        
-N_truth = np.array(N_truth)
-E_truth = np.array(E_truth)
-vx_truth = np.array(vx_truth)
-vy_truth = np.array(vy_truth)
-yaw_truth = np.array(yaw_truth)
-yaw_rate_truth = np.array(yaw_rate_truth)
-hitch_truth = np.array(hitch_truth)
-hitch_rate_truth = np.array(hitch_rate_truth)
-
+    # if Decimal(str(t[k+1])) % Decimal(str(0.1)) == 0:
+    x_.append(x)
+    P_.append(P)
+    K_.append(K)
+    innov_.append(innov)
+    
 # postprocessing
 x_plot = np.array(x_).squeeze().transpose().tolist()
-# x_truth_plot = [N_etal, E_etal, vx_can, vy_etal, yaw_rate_etal, yaw_etal, hitch_rate_etal, hitch_etal]
-x_truth_plot = [N_truth, E_truth, vx_truth, vy_truth, yaw_rate_truth, yaw_truth, hitch_rate_truth, hitch_truth]
-standard_state_est_plotter(x_plot, x_truth_plot, t_, interactive=True)
+x_truth_plot = [N_etal, E_etal, vx_can, vy_etal, yaw_rate_etal, yaw_etal, hitch_rate_etal, hitch_etal]
+# x_truth_plot = [N_truth, E_truth, vx_truth, vy_truth, yaw_rate_truth, yaw_truth, hitch_rate_truth, hitch_truth]
+standard_state_est_plotter(x_plot, x_truth_plot, t, interactive=True)
 body_frame_displacements_plotter(x_plot, x_truth_plot, interactive=True)

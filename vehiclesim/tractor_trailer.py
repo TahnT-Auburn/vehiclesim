@@ -157,7 +157,7 @@ class TractorTrailer:
         self.vp = vp
 
 
-    def latModel(self, steer_ang, Vx, dt):
+    def latModel(self, steer_ang, Vx, dt, epsilon=1e-8):
         """
         Lateral Bicycle Model Simulation. 
         (Source: S.M. Wolfe, "Heavy Truck Modeling and Estimation for Vehicle-to-Vehicle Collision Avoidance Systems")
@@ -166,6 +166,7 @@ class TractorTrailer:
             steer_ang:  steering angle [rad]
             Vx: longitudinal velocity [m/s]
             dt: sampling rate (for discretization)
+            epsilon: small constant for numerical stability
         Returns:
             sysc:   continuous time state space model
             sysd:   discrete time state space model
@@ -179,6 +180,8 @@ class TractorTrailer:
         C3 = vp.cs[2]
         C4 = vp.cs[3]
         C5 = vp.cs[4]
+        # apply epsilon to longitudinal velocity
+        Vx += epsilon
         
         # inertial matrix
         M = np.array([

@@ -1,10 +1,10 @@
 import numpy as np
 from numpy.typing import NDArray
 
-class NavInertialMeasModule():
+class NavInertialOdomMeasModule():
     """
-    Generates a measurement model for the standard 9-state navigation model defined
-    in NavFullStateModule. This measurement module is designed around a longitudinal
+    Generates a measurement model for the 12-state odom navigation model defined
+    in NavOdomStateModule. This measurement module is designed around a longitudinal
     velocity and a yaw rate measurements.
     """
     def __init__(self, error_model:NDArray):
@@ -33,8 +33,8 @@ class NavInertialMeasModule():
             [yaw_rate]
         ])
         H = np.array([
-            [0, 0, 1, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 1, 0, 0, 0, 1]
+            [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]
         ])
         R = self.error_model
         

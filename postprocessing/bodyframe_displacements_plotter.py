@@ -77,14 +77,14 @@ def body_frame_displacements_plotter(x, x_truth, interactive:bool=False):
     for i in range(1,len(N)):
         pose_prev = (E[i-1], N[i-1], yaw[i-1])
         pose_current = (E[i], N[i], yaw[i])
-        dx_body, dy_body, dyaw = tangent_to_body_frame_translation(pose_current, pose_prev)
+        dx_body, dy_body, dyaw = tangent_to_body_frame_translation(pose_prev, pose_current)
         dx_body_.append(dx_body)
         dy_body_.append(dy_body)
         dyaw_.append(dyaw)
         
         pose_prev_truth = (E_truth[i-1], N_truth[i-1], yaw_truth[i-1])
         pose_current_truth = (E_truth[i], N_truth[i], yaw_truth[i])
-        dx_body_truth, dy_body_truth, dyaw_truth = tangent_to_body_frame_translation(pose_current_truth, pose_prev_truth)
+        dx_body_truth, dy_body_truth, dyaw_truth = tangent_to_body_frame_translation(pose_prev_truth, pose_current_truth)
         dx_body_truth_.append(dx_body_truth)
         dy_body_truth_.append(dy_body_truth)
         dyaw_truth_.append(dyaw_truth)  
