@@ -1,8 +1,6 @@
 import numpy as np
 from vehiclesim.tractor_trailer import TractorTrailer
 
-VEH_CONFIG = 'C:\\Users\\Tahn\\SoftDevel\\vehiclesim\\vehiclesim\\vehicle_configs\\5a_config.yaml'
-# TODO: Should move veh config as a config to class. Will change for MC implementations.
 class NavFullStateModule():
     """
     Generates the standard 9-state navigation model using tractor-trailer dynamics and
@@ -26,7 +24,7 @@ class NavFullStateModule():
             error_model (NDArray): State error model. Equivalent to process noise matrix, Q.
             vehicle_config (str): String path to vehicle configuration file.
         """
-        self.tract_trail_model = TractorTrailer(VEH_CONFIG)
+        self.tract_trail_model = TractorTrailer(vehicle_config)
         self.error_model = error_model
         
     def generate_state_model(self, steer_ang, x, dt):

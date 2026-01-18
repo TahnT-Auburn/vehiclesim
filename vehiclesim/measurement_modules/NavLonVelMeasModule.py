@@ -1,7 +1,7 @@
 import numpy as np
 from numpy.typing import NDArray
 
-class NavInertialMeasModule():
+class NavLonVelMeasModule():
     """
     Generates a measurement model for the standard 9-state navigation model defined
     in NavFullStateModule. This measurement module is designed around a longitudinal
@@ -16,7 +16,7 @@ class NavInertialMeasModule():
         """
         self.error_model = error_model
         
-    def generate_meas_model(self, x, yaw_rate):
+    def generate_meas_model(self, x, vx):
         """
         Generates the measurement model for the longitudal vel and yaw rate gyro inertial measurements.
         
@@ -31,10 +31,10 @@ class NavInertialMeasModule():
             R (NDArray): Measurement noise matrix.
         """
         z = np.array([
-            [yaw_rate]
+            [vx]
         ])
         H = np.array([
-            [0, 0, 0, 0, 1, 0, 0, 0, 1]
+            [0, 0, 1, 0, 0, 0, 0, 0, 0],
         ])
         h_x = H @ x
         R = self.error_model

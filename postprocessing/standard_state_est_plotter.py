@@ -1,13 +1,15 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from numpy.typing import NDArray
 
-def standard_state_est_plotter(x, x_truth, t, interactive:bool=False):
+def standard_state_est_plotter(x, x_truth, std, t, interactive:bool=False):
     """
     Generates plots for the standard 9-state estimates vs truth and their errors.
 
     Args:
         x (list): List of state estimates.
         x_truth (list): List of state truths.
+        std (list | NDArray): Standard deviations of each state from the filter.
         t (list): Time.
         interactive (bool, optional). Switch between interactive or non-interactive plots. Deafult is False. 
     """
@@ -33,6 +35,18 @@ def standard_state_est_plotter(x, x_truth, t, interactive:bool=False):
     hitch_rate_truth = x_truth[6]
     hitch_truth = x_truth[7]
     
+    # stds
+    if std is not None:
+        N_std = std[0]
+        E_std = std[1]
+        vx_std = std[2]
+        vy_std = std[3]
+        yaw_rate_std = std[4]
+        yaw_std = std[5]
+        hitch_rate_std = std[6]
+        hitch_std = std[7]
+        bias_yr_std = std[8]
+
     # absolute position
     fig, (ax1, ax2) = plt.subplots(2)
     fig.suptitle('Local NE position')
@@ -66,6 +80,15 @@ def standard_state_est_plotter(x, x_truth, t, interactive:bool=False):
     axs[1,1].plot(t, E_truth - E)
     axs[1,1].set_ylabel('Easting Error [m]')
     axs[1,1].set_xlabel('Time [s]')
+    if std is not None:
+        axs[0,0].plot(t, N + N_std, '--k')
+        axs[0,0].plot(t, N - N_std, '--k')
+        axs[0,1].plot(t, 0 + N_std, '--k')
+        axs[0,1].plot(t, 0 - N_std, '--k')
+        axs[1,0].plot(t, E + E_std, '--k')
+        axs[1,0].plot(t, E - E_std, '--k')
+        axs[1,1].plot(t, 0 + E_std, '--k')
+        axs[1,1].plot(t, 0 - E_std, '--k')
     plt.tight_layout()
     plt.show()
     
@@ -86,6 +109,15 @@ def standard_state_est_plotter(x, x_truth, t, interactive:bool=False):
     axs[1,1].plot(t, vy_truth - vy)
     axs[1,1].set_ylabel('Vy Error [m/s]')
     axs[1,1].set_xlabel('Time [s]')
+    if std is not None:
+        axs[0,0].plot(t, vx + vx_std, '--k')
+        axs[0,0].plot(t, vx - vx_std, '--k')
+        axs[0,1].plot(t, 0 + vx_std, '--k')
+        axs[0,1].plot(t, 0 - vx_std, '--k')
+        axs[1,0].plot(t, vy + vy_std, '--k')
+        axs[1,0].plot(t, vy - vy_std, '--k')
+        axs[1,1].plot(t, 0 + vy_std, '--k')
+        axs[1,1].plot(t, 0 - vy_std, '--k')
     plt.tight_layout()
     plt.show()
     
@@ -106,6 +138,15 @@ def standard_state_est_plotter(x, x_truth, t, interactive:bool=False):
     axs[1,1].plot(t, np.rad2deg(yaw_truth - yaw))
     axs[1,1].set_ylabel('Yaw Error [deg]')
     axs[1,1].set_xlabel('Time [s]')
+    if std is not None:
+        axs[0,0].plot(t, np.rad2deg(yaw_rate + yaw_rate_std), '--k')
+        axs[0,0].plot(t, np.rad2deg(yaw_rate - yaw_rate_std), '--k')
+        axs[0,1].plot(t, np.rad2deg(0 + yaw_rate_std), '--k')
+        axs[0,1].plot(t, np.rad2deg(0 - yaw_rate_std), '--k')
+        axs[1,0].plot(t, np.rad2deg(yaw + yaw_std), '--k')
+        axs[1,0].plot(t, np.rad2deg(yaw - yaw_std), '--k')
+        axs[1,1].plot(t, np.rad2deg(0 + yaw_std), '--k')
+        axs[1,1].plot(t, np.rad2deg(0 - yaw_std), '--k')
     plt.tight_layout()
     plt.show()
     
@@ -126,11 +167,23 @@ def standard_state_est_plotter(x, x_truth, t, interactive:bool=False):
     axs[1,1].plot(t, np.rad2deg(hitch_truth - hitch))
     axs[1,1].set_ylabel('Hitch Error [deg]')
     axs[1,1].set_xlabel('Time [s]')
+    if std is not None:
+        axs[0,0].plot(t, np.rad2deg(hitch_rate + hitch_rate_std), '--k')
+        axs[0,0].plot(t, np.rad2deg(hitch_rate - hitch_rate_std), '--k')
+        axs[0,1].plot(t, np.rad2deg(0 + hitch_rate_std), '--k')
+        axs[0,1].plot(t, np.rad2deg(0 - hitch_rate_std), '--k')
+        axs[1,0].plot(t, np.rad2deg(hitch + hitch_std), '--k')
+        axs[1,0].plot(t, np.rad2deg(hitch - hitch_std), '--k')
+        axs[1,1].plot(t, np.rad2deg(0 + hitch_std), '--k')
+        axs[1,1].plot(t, np.rad2deg(0 - hitch_std), '--k')
     plt.tight_layout()
     plt.show()
     
     # yaw rate bias
     plt.plot(t, bias_yr)
+    if std is not None:
+        plt.plot(t, bias_yr + bias_yr_std, '--k')
+        plt.plot(t, bias_yr - bias_yr_std, '--k')
     plt.title('Yaw rate bias')
     plt.ylabel('rad/s')
     plt.xlabel('Time [s]')
