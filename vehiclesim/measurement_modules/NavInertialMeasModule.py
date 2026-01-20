@@ -4,8 +4,7 @@ from numpy.typing import NDArray
 class NavInertialMeasModule():
     """
     Generates a measurement model for the standard 9-state navigation model defined
-    in NavFullStateModule. This measurement module is designed around a longitudinal
-    velocity and a yaw rate measurements.
+    in NavFullStateModule. This measurement module is designed for yaw rate measurements.
     """
     def __init__(self, error_model:NDArray):
         """
@@ -16,9 +15,9 @@ class NavInertialMeasModule():
         """
         self.error_model = error_model
         
-    def generate_meas_model(self, x, yaw_rate):
+    def generate_meas_model(self, x:NDArray, yaw_rate:float):
         """
-        Generates the measurement model for the longitudal vel and yaw rate gyro inertial measurements.
+        Generates the measurement model for yaw rate gyro inertial measurements.
         
         Args:
             x (NDArray): Current state vector.

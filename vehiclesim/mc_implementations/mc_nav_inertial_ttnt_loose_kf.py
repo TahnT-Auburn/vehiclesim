@@ -3,23 +3,35 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 import scipy.io
-import random
+
+import torch
+import torch.nn as nn
+import torchvision
+from torchvision.transforms import v2
 
 from vehiclesim.state_modules.NavFullStateModule import NavFullStateModule
 from vehiclesim.state_modules.NavZuptStateModule import NavZuptStateModule
 from vehiclesim.measurement_modules.NavLonVelMeasModule import NavLonVelMeasModule
 from vehiclesim.measurement_modules.NavInertialMeasModule import NavInertialMeasModule
 from vehiclesim.measurement_modules.NavZuptInertialMeasModule import NavZuptInertialMeasModule
+from vehiclesim.measurement_modules.NavTTNTMeasModule import NavTTNTMeasModule
+
 from vehiclesim.measurement_simulations.imu_sim_advanced import simulate_imu_advanced
+
+from trailer_pose_network.models.spacetime.async_st_ca_rn_trailer import AsyncSpaceTimeCrossAttentionResNet
+from trailer_pose_network.dataloaders.asynchronous_temporal_dataloader import AsyncTemporalDataLoader
 
 from filter_tools.estimators import Estimators
 
 from postprocessing.standard_mc_plotter import standard_mc_plotter
 
 VEH_CONFIG = 'C:\\Users\\Tahn\\SoftDevel\\vehiclesim\\vehiclesim\\vehicle_configs\\5a_config.yaml'
+SET = 'FF'
+SUBSET = 'FF2'
+
 #%%
 # load csv data file
-CSV = 'D:\\TestingData\simulation\\processed\\FF\\FF2\\FF2.csv'
+CSV = 'D:\\TestingData\\simulation\\processed\\'+SET+'\\'+SUBSET+'\\'+SUBSET+'.csv'
 df = pd.read_csv(CSV, dtype={'SUBSET':str}, header='infer')
 # sensor variables
 steer_truth = df['steer_ang']
@@ -41,7 +53,13 @@ L = len(t)
 N = 9 # number of filter states
 M = 2 # number of measurements
 
-# load trucksim mat file (for custom imu simulation)
+# ---- load roots for dataloader ----
+SEQ_ROOT_PROCESSED = 'D:\\TestingData\\simulation\\10Hz\\'+SET+'\\'+SUBSET+'\\'
+SEQ_ROOT_RAW = 'D:\\TestingData\\simulation\\processed\\'+SET+'\\'+SUBSET+'\\'
+
+# ---- load trucksim mat file (for custom imu simulation) ----
+TS_MAT = 'D:\\TestingData\\simulation\\raw\\'+SET+'\\'+SUBSET+'\\'+SUBSET+'_TS.mat'
+
 TS_MAT = 'D:\\TestingData\\simulation\\raw\\FF\\FF2\\FF2_TS.mat'
 ts_mat = scipy.io.loadmat(TS_MAT)
 L_ts = len(ts_mat['T_Event'].squeeze())
@@ -58,10 +76,74 @@ ang_vel = [
     np.deg2rad(ts_mat['AVz'].squeeze()),
 ]
 
+#%%
+# create network model and dataloader
+# === DATALOADER PARAMETERS ===
+SEQ_LOOKBACK = 2
+IMG_SIZE = (224,224)
+BATCH_SIZE = 1
 
+# === MODEL PARAMETERS ===
+WEIGHTS= "C:\\Users\\Tahn\\SoftDevel\\trailer_pose_network\\weights\\simulation\\async_st_ca_rn_acc_yaw_trailer\\async_st_ca_rn_acc_yaw_trailer_v1.pth"
+DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+NUM_DELTAS = 1
+NUM_FRAMES = 2
+NUM_IMU_SAMPLES = 5
+EMBED_DIM = 384
+NUM_HEADS = 8
+DEPTH = 8
+IN_CHANNELS = 3
+IMU_CHANNELS = 8
+DROPOUT = 0.
+NUM_OUTPUTS = 3
+
+dataset = AsyncTemporalDataLoader(
+    sequence_root_processed=SEQ_ROOT_PROCESSED,
+    sequence_root_raw=SEQ_ROOT_RAW,
+    sequential_lookback=SEQ_LOOKBACK,
+    inputs={'cam':True, 'can':True, 'imu':True, 'yaw_hist':False},
+    transform_img=v2.Compose([
+        v2.ToPILImage(),
+        v2.Resize(IMG_SIZE),
+        v2.ToImage(),
+        v2.ToDtype(torch.float32, scale=True),
+        v2.Normalize(
+            mean=[0.485, 0.456, 0.406],
+            std=[0.229, 0.224, 0.225]
+        ),
+    ]),
+)
+
+network_model = AsyncSpaceTimeCrossAttentionResNet(
+    resnet_model=torchvision.models.resnet34(weights=None),
+    resnet_model_hitch=torchvision.models.resnet34(weights=None),
+    num_deltas=NUM_DELTAS,
+    img_size=IMG_SIZE,
+    seqential_lookback=SEQ_LOOKBACK,
+    in_channels=IN_CHANNELS,
+    embed_dim=EMBED_DIM,
+    num_frames=NUM_FRAMES,
+    num_imu_samples=NUM_IMU_SAMPLES,
+    imu_channels=IMU_CHANNELS,
+    num_heads=NUM_HEADS,
+    depth=DEPTH,
+    dropout=DROPOUT,
+)
+network_model = network_model.to(DEVICE)
+# Load weights
+state_dict = torch.load(WEIGHTS)
+network_model.load_state_dict(state_dict)
+    
+# freeze batch norm layers
+for module in network_model.modules():
+    if isinstance(module, nn.BatchNorm2d):
+        module.eval()
+        module.weight.requires_grad = False
+        module.bias.requires_grad = False
+            
 #%%
 # set up monte carlo loop variables and filter modules 
-L_MC = 500
+L_MC = 100
 
 # storage variables
 x_mc = np.zeros((N, L_MC, L)) # state
@@ -117,22 +199,34 @@ kf_estimator = Estimators(n=N ,m=M)
 #%%
 # monte carlo loop
 for m in tqdm(range(0,L_MC)):
-
+    # refresh measurement module to reset initial states
+    ttnt_measurement_module = NavTTNTMeasModule(
+        network_model=network_model,
+        init_states=[N_truth[0], E_truth[0], yaw_truth[0]],
+        error_model = np.diag([
+            1e0,
+            1e0,
+            1e-3,
+            1e-3
+        ])
+    )
     # grade = random.randint(1,5)
     # setup variance variables (IMU for now)
     # TODO: Vary grade. Testing consumer grade only for now
+    # simulate imu
     imu = simulate_imu_advanced(
-    lin_accel,
-    ang_vel,
-    accel_bias_sigma=(0.05, 0.05, 0.05),
-    accel_bias_tau = (300.0, 300.0, 300.0),  # seconds (5 minutes)
-    accel_rw_sigma = (0.002, 0.002, 0.002),  # m/s^2 (white noise)
-    gyro_bias_sigma = (0.005, 0.005, 0.005),  # rad/s (about 0.1 deg/s or 360 deg/hr)
-    gyro_bias_tau = (300.0, 300.0, 300.0),  # seconds (5 minutes)
-    gyro_rw_sigma = (0.0005, 0.0005, 0.0005),  # rad/s (about 0.02 deg/s white noise)
-    dt=dt,
-    L=L,
-)
+        lin_accel,
+        ang_vel,
+        accel_bias_sigma=(0.05, 0.05, 0.05),
+        accel_bias_tau = (300.0, 300.0, 300.0),  # seconds (5 minutes)
+        accel_rw_sigma = (0.002, 0.002, 0.002),  # m/s^2 (white noise)
+        gyro_bias_sigma = (0.005, 0.005, 0.005),  # rad/s (about 0.1 deg/s or 360 deg/hr)
+        gyro_bias_tau = (100.0, 100.0, 100.0),  # seconds (5 minutes)
+        gyro_rw_sigma = (0.005, 0.005, 0.005),  # rad/s (about 0.02 deg/s white noise)
+        dt=dt,
+        L=L,
+    )
+
     steer_truth = steer_truth + np.deg2rad(0.5)*np.random.randn(L)
     vx_truth = vx_truth + 0.01*np.random.randn(L)
 
@@ -178,6 +272,7 @@ for m in tqdm(range(0,L_MC)):
     # P_mc[:,:,m,0] = P
 
     # ---- filter loop ----
+    j = 0
     for k in range(0,L-1):
         # ---- ZUPT ----
         if vx_truth[k+1] <= vx_thresh:
@@ -202,7 +297,19 @@ for m in tqdm(range(0,L_MC)):
             x, P, innov, K = kf_estimator.kf_update(x, P, z, H, h_x, R)
             z, H, h_x, R = inertial_measurement_module.generate_meas_model(x, imu.gyro[2,k+1])
             x, P, innov, K = kf_estimator.kf_update(x, P, z, H, h_x, R)
-
+        # naive fusion for now - always take corrections when available to make timing easier
+        if k !=0 and k % 4 == 0:
+            idx = j
+            # get inputs from dataloader
+            inputs, _ = dataset.__getitem__(idx)
+            # cast to device
+            inputs[0] = inputs[0].to(device=DEVICE, dtype=torch.float32).unsqueeze(dim=0) # emulates a batchsize of 1
+            inputs[1] = inputs[1].to(device=DEVICE, dtype=torch.float32).unsqueeze(dim=0) # emulates a batchsize of 1
+            # call TTNT measurement module
+            z, H, h_x, R = ttnt_measurement_module.generate_meas_model(x, inputs)
+            x, P, innov, K = kf_estimator.kf_update(x, P, z, H, h_x, R)
+            j += 1
+            
         # get truth state for error
         x_truth = np.array([
             [N_truth[k+1]],
@@ -225,16 +332,8 @@ for m in tqdm(range(0,L_MC)):
         # populate mc variables
         x_mc[:,m,k+1] = x.squeeze()
         x_error_mc[:,m,k+1] = x_error.squeeze()
-        # P_mc[:,:,m,k+1] = P
 
     # ---- end of filter loop (single MC) ----
-    
-    # populate mc variables
-    # x_array = np.array(x_).squeeze().transpose()
-    # x_error_array = np.array(x_error_).squeeze().transpose()
-    # x_mc[:,m,:] = x_array
-    # x_error_mc[:,m,:] = x_error_array
-
 # ---- end of mc loop ----
 
 # extract statistics (mean/stds along mc dimension)
@@ -246,8 +345,7 @@ x_error_mc_std = np.std(x_error_mc, axis=1)
 # extract theorethical std from filter covariance
 P_array = np.array(P_)
 theo_std = np.sqrt(np.diagonal(P_array, axis1=1, axis2=2).transpose())
-# P_mean = np.mean(P_mc, axis=2) # mean across all mc runs
-# theo_std = np.sqrt(np.diagonal(P_mean, axis1=0, axis2=1).transpose())
+
 
 #%%
 # call postprocessing plotting function

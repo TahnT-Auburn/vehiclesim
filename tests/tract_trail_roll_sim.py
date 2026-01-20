@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from scipy.linalg import expm
 
 from vehiclesim.tractor_trailer import TractorTrailer
-from vehiclesim.imu_sim import *
+from vehiclesim.measurement_simulations.imu_sim import *
 
 #%%
 # simulation setup
