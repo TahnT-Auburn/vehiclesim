@@ -173,7 +173,7 @@ def standard_mc_plotter(x_mc: NDArray,
     plt.legend()
     plt.title('Yaw Rate Error')
     plt.xlabel('Time [s]')
-    plt.ylabel('[rad/s]')
+    plt.ylabel('[deg/s]')
     plt.show()
 
     # yaw
@@ -186,7 +186,7 @@ def standard_mc_plotter(x_mc: NDArray,
     plt.legend()
     plt.title('Yaw Error')
     plt.xlabel('Time [s]')
-    plt.ylabel('[rad]')
+    plt.ylabel('[deg]')
     plt.show()
 
     # hitch rate
@@ -199,7 +199,7 @@ def standard_mc_plotter(x_mc: NDArray,
     plt.legend()
     plt.title('Hitch Rate Error')
     plt.xlabel('Time [s]')
-    plt.ylabel('[rad/s]')
+    plt.ylabel('[deg/s]')
     plt.show()
 
     # hitch
@@ -212,7 +212,7 @@ def standard_mc_plotter(x_mc: NDArray,
     plt.legend()
     plt.title('Hitch Error')
     plt.xlabel('Time [s]')
-    plt.ylabel('[rad]')
+    plt.ylabel('[deg]')
     plt.show()
 
     # ---- state plots ----
@@ -279,7 +279,7 @@ def standard_mc_plotter(x_mc: NDArray,
         plt.legend()
         plt.title('Yaw Rate')
         plt.xlabel('Time [s]')
-        plt.ylabel('[rad/s]')
+        plt.ylabel('[deg/s]')
         plt.show()
 
         # yaw
@@ -292,7 +292,7 @@ def standard_mc_plotter(x_mc: NDArray,
         plt.legend()
         plt.title('Yaw')
         plt.xlabel('Time [s]')
-        plt.ylabel('[rad]')
+        plt.ylabel('[deg]')
         plt.show()
 
         # hitch rate
@@ -305,7 +305,7 @@ def standard_mc_plotter(x_mc: NDArray,
         plt.legend()
         plt.title('Hitch')
         plt.xlabel('Time [s]')
-        plt.ylabel('[rad]')
+        plt.ylabel('[deg]')
         plt.show()
 
         # hitch
@@ -318,5 +318,5 @@ def standard_mc_plotter(x_mc: NDArray,
         plt.legend()
         plt.title('Hitch')
         plt.xlabel('Time [s]')
-        plt.ylabel('[rad]')
+        plt.ylabel('[deg]')
         plt.show()

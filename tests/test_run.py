@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 from vehiclesim.tractor_trailer import TractorTrailer
 from python_utilities.plotters_class import Plotters
-from vehiclesim.imu_sim import *
+from vehiclesim.measurement_simulations.imu_sim import *
 
 if __name__ == '__main__':
     

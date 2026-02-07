@@ -34,7 +34,7 @@ from vehiclesim.tractor_trailer import TractorTrailer
 from filter_tools.estimators import Estimators
 from nav_tools.imu_mechanization import *
 from nav_tools.nav_utilities import *
-from vehiclesim.imu_sim import *
+from vehiclesim.measurement_simulations.imu_sim import *
 from postprocessing.lat_sim_plotter import *
 from postprocessing.calc_error_statics import *
 from genNavMatrices import *

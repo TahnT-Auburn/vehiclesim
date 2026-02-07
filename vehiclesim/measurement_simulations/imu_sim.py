@@ -43,7 +43,6 @@ def simulate_imu(grade, accel, gyro, L):
 
     ################################################################
     """
-    #TODO: Add FOGM bias!
     # declare 3dof signals
     Ax = accel[0]
     Ay = accel[1]
@@ -64,7 +63,6 @@ def simulate_imu(grade, accel, gyro, L):
         # bias_gyro = [5e-4, 5e-4, 5e-4]  #[rad/s]
         bias_accel = [0.1, 0.1, 0.1] #[m/s^2]
         bias_gyro = [5e-3, 5e-3, 5e-3]  #[rad/s]
-        # bias_gyro = [0, 0, 0]
 
     #------ Tactical -----%
     elif (grade == 2):
