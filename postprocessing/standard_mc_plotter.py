@@ -303,9 +303,9 @@ def standard_mc_plotter(x_mc: NDArray,
         plt.plot(t, np.rad2deg(hitch_rate_mean - sigma_bound_fator * hitch_rate_std), 'r')
         plt.plot(t, np.rad2deg(hitch_rate_mean - sigma_bound_fator * hitch_rate_theo_std), '--k')
         plt.legend()
-        plt.title('Hitch')
+        plt.title('Hitch Rate')
         plt.xlabel('Time [s]')
-        plt.ylabel('[deg]')
+        plt.ylabel('[deg/s]')
         plt.show()
 
         # hitch

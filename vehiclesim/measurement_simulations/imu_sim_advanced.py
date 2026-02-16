@@ -76,8 +76,8 @@ def simulate_imu_advanced(
         accel_noisy[:,i] = accel[:,i] + accel_bias + accel_noise
         gyro_noisy[:,i] = gyro[:,i] + gyro_bias + gyro_noise
 
-        # add gravity term to Az signal
-        accel_noisy[:,2] += 9.81 # positive for NED convention 
+    # add gravity term to Az signal
+    accel_noisy[2,:] = accel_noisy[2,:] - 9.81 # positive for NED convention 
     
     imu = Box({
         'accel': 'NaN',\

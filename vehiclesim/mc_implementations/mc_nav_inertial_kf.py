@@ -4,22 +4,30 @@ import pandas as pd
 from tqdm import tqdm
 import scipy.io
 import random
+from pathlib import Path
 
 from vehiclesim.state_modules.NavFullStateModule import NavFullStateModule
 from vehiclesim.state_modules.NavZuptStateModule import NavZuptStateModule
 from vehiclesim.measurement_modules.NavLonVelMeasModule import NavLonVelMeasModule
 from vehiclesim.measurement_modules.NavInertialMeasModule import NavInertialMeasModule
 from vehiclesim.measurement_modules.NavZuptInertialMeasModule import NavZuptInertialMeasModule
+from vehiclesim.measurement_modules.NavHitchMeasModule import NavHitchMeasModule
 from vehiclesim.measurement_simulations.imu_sim_advanced import simulate_imu_advanced
+from vehiclesim.measurement_simulations.imu_sim import simulate_imu
+from vehiclesim.vehicle_configs.veh_params import vp as vp_dict
+
+from vehiclesim.mc_tools.mc_veh_config import perturb_parameters
 
 from filter_tools.estimators import Estimators
 
 from postprocessing.standard_mc_plotter import standard_mc_plotter
 
-VEH_CONFIG = 'C:\\Users\\Tahn\\SoftDevel\\vehiclesim\\vehiclesim\\vehicle_configs\\5a_config.yaml'
+# VEH_CONFIG = 'C:\\Users\\pzt0029\\Documents\\Vehicle_Simulations\\vehiclesim\\vehiclesim\\vehicle_configs\\5a_config.yaml'
+SET = 'FF'
+SUBSET = 'FF2'
 #%%
 # load csv data file
-CSV = 'D:\\TestingData\simulation\\processed\\FF\\FF2\\FF2.csv'
+CSV = 'C:\\Users\\pzt0029\\Documents\\Data\\Thesis\\TestingData\\simulation\\processed\\'+SET+'\\'+SUBSET+'\\'+SUBSET+'.csv'
 df = pd.read_csv(CSV, dtype={'SUBSET':str}, header='infer')
 # sensor variables
 steer_truth = df['steer_ang']
@@ -42,7 +50,7 @@ N = 9 # number of filter states
 M = 2 # number of measurements
 
 # load trucksim mat file (for custom imu simulation)
-TS_MAT = 'D:\\TestingData\\simulation\\raw\\FF\\FF2\\FF2_TS.mat'
+TS_MAT = 'C:\\Users\\pzt0029\\Documents\\Data\\Thesis\\TestingData\\simulation\\raw\\'+SET+'\\'+SUBSET+'\\'+SUBSET+'_TS.mat'
 ts_mat = scipy.io.loadmat(TS_MAT)
 L_ts = len(ts_mat['T_Event'].squeeze())
 
@@ -61,28 +69,13 @@ ang_vel = [
 
 #%%
 # set up monte carlo loop variables and filter modules 
-L_MC = 500
+L_MC = 50
 
 # storage variables
 x_mc = np.zeros((N, L_MC, L)) # state
 x_error_mc = np.zeros((N, L_MC, L)) # state errors
 P_mc = np.zeros((N, N, L_MC, L))
 # instantiate modules
-standard_state_module = NavFullStateModule(
-    error_model=np.diag([
-        0.1,# N
-        0.1,# E
-        0.01,# vx    
-        0.01,# vy
-        0.00001,# yaw rate
-        0.0001,# yaw
-        0.00001,# hitch_rate
-        0.0001,# hitch
-        1e-6 # bias ar
-    ]),
-    # error_model=1e-5*np.eye(N),
-    vehicle_config=VEH_CONFIG,
-)
 zupt_state_module = NavZuptStateModule(
     error_model=np.diag([
         1e-3,# N
@@ -103,7 +96,7 @@ vx_measurement_module = NavLonVelMeasModule(
 )
 inertial_measurement_module = NavInertialMeasModule(
     error_model=np.diag([
-        5e-3 # imu_gyro_z
+        5e-2 # imu_gyro_z
     ]),
 )
 zupt_measurement_module = NavZuptInertialMeasModule(
@@ -112,30 +105,77 @@ zupt_measurement_module = NavZuptInertialMeasModule(
         1e-3
     ])
 )
-kf_estimator = Estimators(n=N ,m=M)
+hitch_measurement_module = NavHitchMeasModule(
+    error_model=np.diag([
+        1e-3
+    ])
+)
 
+kf_estimator = Estimators(n=N ,m=M)
+# imu = simulate_imu_advanced(
+#     lin_accel,
+#     ang_vel,
+#     accel_bias_sigma=(0.05, 0.05, 0.05),
+#     accel_bias_tau = (300.0, 300.0, 300.0),  # seconds (5 minutes)
+#     accel_rw_sigma = (0.002, 0.002, 0.002),  # m/s^2 (white noise)
+#     gyro_bias_sigma = (0.005, 0.005, 0.005),  # rad/s (about 0.1 deg/s or 360 deg/hr)
+#     gyro_bias_tau = (300.0, 300.0, 300.0),  # seconds (5 minutes)
+#     gyro_rw_sigma = (0.0007, 0.0007, 0.0007),  # rad/s (about 0.02 deg/s white noise)
+#     dt=dt,
+#     L=L_ts,
+# )
+# imu = simulate_imu(
+#     grade=1,
+#     accel=lin_accel,
+#     gyro=ang_vel,
+#     L=L
+# )
 #%%
 # monte carlo loop
 for m in tqdm(range(0,L_MC)):
-
-    # grade = random.randint(1,5)
-    # setup variance variables (IMU for now)
-    # TODO: Vary grade. Testing consumer grade only for now
+    # Generate new vehicle configs for every MC
+    perturbed_vp = perturb_parameters(
+        nominal_params=vp_dict,
+        percentage=0.5,
+        distribution='uniform'
+    )
+    standard_state_module = NavFullStateModule(
+        error_model=np.diag([
+            0.1,# N
+            0.1,# E
+            0.01,# vx    
+            0.01,# vy
+            0.001,# yaw rate
+            0.0001,# yaw
+            0.001,# hitch_rate
+            0.0001,# hitch
+            1e-6 # bias ar
+        ]),
+        vehicle_config=perturbed_vp,
+    )
+    # resimulate IMU for every MC
     imu = simulate_imu_advanced(
-    lin_accel,
-    ang_vel,
-    accel_bias_sigma=(0.05, 0.05, 0.05),
-    accel_bias_tau = (300.0, 300.0, 300.0),  # seconds (5 minutes)
-    accel_rw_sigma = (0.002, 0.002, 0.002),  # m/s^2 (white noise)
-    gyro_bias_sigma = (0.005, 0.005, 0.005),  # rad/s (about 0.1 deg/s or 360 deg/hr)
-    gyro_bias_tau = (300.0, 300.0, 300.0),  # seconds (5 minutes)
-    gyro_rw_sigma = (0.0005, 0.0005, 0.0005),  # rad/s (about 0.02 deg/s white noise)
-    dt=dt,
-    L=L,
-)
-    steer_truth = steer_truth + np.deg2rad(0.5)*np.random.randn(L)
-    vx_truth = vx_truth + 0.01*np.random.randn(L)
-
+        lin_accel,
+        ang_vel,
+        accel_bias_sigma=(0.05, 0.05, 0.05),
+        accel_bias_tau = (300.0, 300.0, 300.0),  # seconds (5 minutes)
+        accel_rw_sigma = (0.002, 0.002, 0.002),  # m/s^2 (white noise)
+        gyro_bias_sigma = (0.005, 0.005, 0.005),  # rad/s (about 0.1 deg/s or 360 deg/hr)
+        gyro_bias_tau = (300.0, 300.0, 300.0),  # seconds (5 minutes)
+        gyro_rw_sigma = (0.0007, 0.0007, 0.0007),  # rad/s (about 0.02 deg/s white noise)
+        dt=dt,
+        L=L_ts,
+    )
+    # imu = simulate_imu(
+    #     grade=1,
+    #     accel=lin_accel,
+    #     gyro=ang_vel,
+    #     L=L
+    # )
+    # steer_truth = steer_truth + np.deg2rad(0.5)*np.random.randn(L)
+    # vx_truth = vx_truth + 0.01*np.random.randn(L)
+    # steer_truth = steer_truth
+    # vx_truth_= vx_truth
     x_ = [] # state
     x_error_ = [] # state error
 
@@ -182,9 +222,9 @@ for m in tqdm(range(0,L_MC)):
         # ---- ZUPT ----
         if vx_truth[k+1] <= vx_thresh:
             # time update
-            PHI, G, Q = zupt_state_module.generate_state_model()
+            PHI, F, G, Q = zupt_state_module.generate_state_model()
             u = np.array([[0]])
-            x, P = kf_estimator.kf_predict(x, P, PHI, G, u, Q)
+            x, P = kf_estimator.kf_predict(x, P, PHI, F, G, u, Q)
 
             # measurement update
             z, H, h_x, R = zupt_measurement_module.generate_meas_model(x, imu.gyro[2,k+1])
@@ -193,15 +233,18 @@ for m in tqdm(range(0,L_MC)):
         # ---- STANDARD NAV STATE/MEASUREMENT MODEL ----
         else:
             # time update
-            PHI, G, Q = standard_state_module.generate_state_model(steer_truth[k+1], x, dt)
+            PHI, F, G, Q = standard_state_module.generate_state_model(steer_truth[k+1], x, dt)
             u = np.array([[steer_truth[k+1]]]) # single element array for matrix operation
-            x, P = kf_estimator.kf_predict(x, P, PHI, G, u, Q)
+            x, P = kf_estimator.kf_predict(x, P, PHI, F, G, u, Q)
 
             # measurement update
             z, H, h_x, R = vx_measurement_module.generate_meas_model(x, vx_truth[k+1])
             x, P, innov, K = kf_estimator.kf_update(x, P, z, H, h_x, R)
             z, H, h_x, R = inertial_measurement_module.generate_meas_model(x, imu.gyro[2,k+1])
             x, P, innov, K = kf_estimator.kf_update(x, P, z, H, h_x, R)
+
+            # z, H, h_x, R = hitch_measurement_module.generate_meas_model(x, hitch_rate_truth[k+1])
+            # x, P, innov, K = kf_estimator.kf_update(x, P, z, H, h_x, R)
 
         # get truth state for error
         x_truth = np.array([
@@ -227,13 +270,8 @@ for m in tqdm(range(0,L_MC)):
         x_error_mc[:,m,k+1] = x_error.squeeze()
         # P_mc[:,:,m,k+1] = P
 
+
     # ---- end of filter loop (single MC) ----
-    
-    # populate mc variables
-    # x_array = np.array(x_).squeeze().transpose()
-    # x_error_array = np.array(x_error_).squeeze().transpose()
-    # x_mc[:,m,:] = x_array
-    # x_error_mc[:,m,:] = x_error_array
 
 # ---- end of mc loop ----
 
@@ -260,5 +298,5 @@ standard_mc_plotter(x_mc=x_mc,
                     theo_std=theo_std,
                     t=t,
                     sigma_bound_fator=1,
-                    error_only=True,
+                    error_only=False,
                     interactive=True)

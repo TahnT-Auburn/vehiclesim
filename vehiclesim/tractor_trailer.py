@@ -25,10 +25,11 @@ import os
 import scipy.io
 from control.matlab import *
 from python_utilities.parsers_class import Parsers
+from box import Box
 
 class TractorTrailer:
 
-    def __init__(self, veh_config_file:str, config_type:str='5a', ts_data_file:str=None):
+    def __init__(self, vp_dict:dict, config_type:str='5a', ts_data_file:str=None):
         """
         Class Description:
             A class to handle tractor trailer simulations.
@@ -45,15 +46,15 @@ class TractorTrailer:
         """
 
         #Input assertions
-        assert type(veh_config_file) == str,\
-            f"Input <ts_data> has invalid type. Expected <class 'str'> but recieved {type(veh_config_file)}"
+        assert type(vp_dict) == dict,\
+            f"Input <vp_dict> has invalid type. Expected <class 'dict'> but recieved {type(vp_dict)}"
         assert type(config_type) == str,\
-            f"Input <ts_data> has invalid type. Expected <class 'str'> but recieved {type(config_type)}"
+            f"Input <config_type> has invalid type. Expected <class 'str'> but recieved {type(config_type)}"
         assert type(ts_data_file) == str or ts_data_file == None,\
-            f"Input <ts_data> has invalid type. Expected <class 'str'> but recieved {type(ts_data_file)}"
+            f"Input <ts_data_file> has invalid type. Expected <class 'str'> but recieved {type(ts_data_file)}"
         
         #Class objects
-        self.veh_config_file = veh_config_file
+        self.vp_dict = vp_dict
         self.config_type = config_type
         self.ts_data_file = ts_data_file
         
@@ -116,8 +117,9 @@ class TractorTrailer:
         """
         
         #Parse yaml
-        vp = Parsers().yamlParser(self.veh_config_file, box=True)
-        
+        # vp = Parsers().yamlParser(self.veh_config_file, box=True)
+        vp = Box(self.vp_dict)
+
         #Generate additional parameters
         if (self.config_type == '3a'):
 

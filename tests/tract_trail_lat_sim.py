@@ -29,7 +29,7 @@ import torchvision
 from torch.utils.data import DataLoader, TensorDataset, Sampler
 
 # import matlab.engine
-
+from vehiclesim.vehicle_configs.veh_params import vp as vp_dict
 from vehiclesim.tractor_trailer import TractorTrailer
 from filter_tools.estimators import Estimators
 from nav_tools.imu_mechanization import *
@@ -45,12 +45,12 @@ from trailer_pose_network.data_setup import TractorTrailerData
 
 # call instances
 # double lane change
-# veh_config_file = 'C:\\Users\\Tahn\\SoftDevel\\vehiclesim\\tests\\veh_config\\tractor_trailer\\5a_config.yaml'
-veh_config_file = 'C:\\Users\\pzt0029\\Documents\\Vehicle_Simulations\\vehiclesim\\tests\\veh_config\\tractor_trailer\\5a_config.yaml'
+veh_config_file = 'C:\\Users\\Tahn\\SoftDevel\\vehiclesim\\tests\\veh_config\\tractor_trailer\\5a_config.yaml'
+# veh_config_file = 'C:\\Users\\pzt0029\\Documents\\Vehicle_Simulations\\vehiclesim\\tests\\veh_config\\tractor_trailer\\5a_config.yaml'
 # ts_data_file = 'C:\\Users\\pzt0029\\Documents\\Vehicle_Simulations\\vehiclesim\\tests\\data\\30_mph_step_180.csv'
 ts_data_file = 'D:\\TestingData\\simulation\\raw\\FF\\FF2\\FF2_TS.mat'
 camera_file = 'D:\\TestingData\\simulation\\processed\\FF\\FF2\\FF2.csv'
-tract_trail = TractorTrailer(veh_config_file=veh_config_file, config_type='5a', ts_data_file=ts_data_file)
+tract_trail = TractorTrailer(vp_dict=vp_dict, config_type='5a', ts_data_file=ts_data_file)
 
 # load vehicle parameters
 vp = tract_trail.vp

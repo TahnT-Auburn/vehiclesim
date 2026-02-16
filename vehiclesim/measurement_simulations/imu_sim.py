@@ -61,8 +61,8 @@ def simulate_imu(grade, accel, gyro, L):
         # Biases [x, y, z]
         # bias_accel = [0.10, 0.10, 0.10] #[m/s^2]
         # bias_gyro = [5e-4, 5e-4, 5e-4]  #[rad/s]
-        bias_accel = [0.1, 0.1, 0.1] #[m/s^2]
-        bias_gyro = [5e-3, 5e-3, 5e-3]  #[rad/s]
+        bias_accel = [0.5, 0.5, 0.5] #[m/s^2]
+        bias_gyro = [1e-3, 1e-3, 1e-3]  #[rad/s]
 
     #------ Tactical -----%
     elif (grade == 2):
@@ -122,6 +122,10 @@ def simulate_imu(grade, accel, gyro, L):
     n_AVx  = sigma_gyro[0]*np.random.randn(L)
     n_AVy  = sigma_gyro[1]*np.random.randn(L)
     n_AVz  = sigma_gyro[2]*np.random.randn(L)
+
+    if np.random.random() < 0.5:
+        bias_accel = [-x for x in bias_accel]
+        bias_gyro = [-x for x in bias_gyro]
 
     #Generate IMU measurements
     Ax = Ax + n_Ax + bias_accel[0]

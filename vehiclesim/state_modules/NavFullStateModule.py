@@ -43,6 +43,7 @@ class NavFullStateModule():
             Q (NDArray): State process noise matrix. 
         """
         vx = x[2, 0]
+        vy = x[3, 0]
         yaw = x[5, 0]
         # generate tractor-trailer dynamics model
         _, sysd = self.tract_trail_model.latModel(steer_ang, vx, dt)
@@ -71,8 +72,30 @@ class NavFullStateModule():
         # process noise
         Q = self.error_model
         
+        # Generate jacobian for PHI
+        F = np.eye(9)
+    
+        # North position derivatives (row 0)
+        F[0, 0] = 1
+        F[0, 2] = np.sin(yaw) * dt      # ∂N/∂vx
+        F[0, 3] = np.cos(yaw) * dt      # ∂N/∂vy
+        F[0, 5] = (vx*np.cos(yaw) - vy*np.sin(yaw)) * dt  # ∂N/∂yaw
+        
+        # East position derivatives (row 1)
+        F[1, 1] = 1
+        F[1, 2] = np.cos(yaw) * dt      # ∂E/∂vx
+        F[1, 3] = -np.sin(yaw) * dt     # ∂E/∂vy
+        F[1, 5] = (-vx*np.sin(yaw) - vy*np.cos(yaw)) * dt  # ∂E/∂yaw
+        
+        # Vehicle dynamics (rows 2-6, cols 2-6)
+        F[3:8, 3:8] = A
+        
+        # dyaw_rate/dyaw_rate_bias
+        # Yaw affected by yaw rate bias (row 4, col 8)
+        F[5, 8] = dt  # ∂(yaw)/∂(yaw_rate_bias)
+
         # enforce ndarray on PHI and G since A, B from latmodel method is np.matrix
         PHI = np.array(PHI)
         G = np.array(G)
-         
-        return PHI, G, Q
+        
+        return PHI, F, G, Q

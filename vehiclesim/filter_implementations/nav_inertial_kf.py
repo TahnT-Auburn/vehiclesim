@@ -9,6 +9,7 @@ from vehiclesim.state_modules.NavFullStateModule import NavFullStateModule
 from vehiclesim.state_modules.NavZuptStateModule import NavZuptStateModule
 from vehiclesim.measurement_modules.NavInertialMeasModule import NavInertialMeasModule
 from vehiclesim.measurement_modules.NavZuptInertialMeasModule import NavZuptInertialMeasModule
+from vehiclesim.vehicle_configs.veh_params import vp as vp_dict
 
 from filter_tools.estimators import Estimators
 
@@ -88,7 +89,7 @@ standard_state_module = NavFullStateModule(
         0.001,# hitch
         1e-6 # bias ar
     ]),
-    vehicle_config=VEH_CONFIG,
+    vehicle_config=vp_dict,
 )
 zupt_state_module = NavZuptStateModule(
     error_model=np.diag([

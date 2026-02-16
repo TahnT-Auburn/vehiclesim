@@ -25,7 +25,8 @@ class NavZuptStateModule():
             Q (NDArray): State process noise matrix. 
         """
         PHI = np.diag([1,1,0,0,0,1,0,1,1])
+        F = PHI
         G = np.zeros((9,1))
         Q = self.error_model
         
-        return PHI, G, Q 
+        return PHI, F, G, Q 
