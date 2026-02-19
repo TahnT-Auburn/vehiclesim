@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from numpy.typing import NDArray
 
-def joint_kf_vio_mc_plotter(
+def joint_ins_kf_vio_mc_plotter(
     x_mc: NDArray,
     x_error_mc: NDArray,
     x_mc_mean: NDArray,
@@ -16,6 +16,12 @@ def joint_kf_vio_mc_plotter(
     x_mc_std_vio: NDArray,
     x_error_mc_mean_vio: NDArray,
     x_error_mc_std_vio: NDArray,
+    x_mc_ins: NDArray,
+    x_error_mc_ins: NDArray,
+    x_mc_mean_ins: NDArray,
+    x_mc_std_ins: NDArray,
+    x_error_mc_mean_ins: NDArray,
+    x_error_mc_std_ins: NDArray,
     t: list | NDArray,
     sigma_bound_fator: int = 1,
     interactive:bool=False,
@@ -173,12 +179,44 @@ def joint_kf_vio_mc_plotter(
     yaw_rate_error_std_vio = x_error_mc_std_vio[5]
     hitch_rate_error_std_vio = x_error_mc_std_vio[6]
     
+    # === extract statistics for ins ===
+    N_mc_ins = x_mc_ins[0].transpose()
+    E_mc_ins = x_mc_ins[1].transpose()
+    yaw_mc_ins = x_mc_ins[2].transpose()
+    
+    N_error_mc_ins = x_error_mc_ins[0].transpose()
+    E_error_mc_ins = x_error_mc_ins[1].transpose()
+    yaw_error_mc_ins = x_error_mc_ins[2].transpose()
+    
+    # extract means/stds for each state and state error
+    # state means
+    N_mean_ins = x_mc_mean_ins[0]
+    E_mean_ins = x_mc_mean_ins[1]
+    yaw_mean_ins = x_mc_mean_ins[2]
+    
+    # state mc stds
+    N_std_ins = x_mc_std_ins[0]
+    E_std_ins = x_mc_std_ins[1]
+    yaw_std_ins = x_mc_std_ins[2]
+    
+    # state error means
+    N_error_mean_ins = x_error_mc_mean_ins[0]
+    E_error_mean_ins = x_error_mc_mean_ins[1]
+    yaw_error_mean_ins = x_error_mc_mean_ins[2]
+    
+    # state error stds
+    N_error_std_ins = x_error_mc_std_ins[0]
+    E_error_std_ins = x_error_mc_std_ins[1]
+    yaw_error_std_ins = x_error_mc_std_ins[2]
     
     # ---- state error plots ----
     # North error
     plt.figure()
+    plt.plot(t, N_error_mc_ins, linewidth=1, alpha=0.4, color="#94C0E9",)
     plt.plot(t, N_error_mc, linewidth=1, alpha=0.4, color='gray',)
     plt.plot(t, N_error_mc_vio, linewidth=1, alpha=0.4, color='#021D30')
+    plt.plot(t, N_error_mean_ins + sigma_bound_fator * N_error_std_ins, color='m', label='INS exp $\pm$'+ str(sigma_bound_fator)+'$\sigma$')
+    plt.plot(t, N_error_mean_ins - sigma_bound_fator * N_error_std_ins, color='m')
     plt.plot(t, N_error_mean + sigma_bound_fator * N_error_std, 'r', label='EKF exp $\pm$'+ str(sigma_bound_fator)+'$\sigma$')
     # plt.plot(t, 0 + sigma_bound_fator * N_theo_std, '--k', label='EKF theo $\pm$'+str(sigma_bound_fator)+'$\sigma$')
     plt.plot(t, N_error_mean - sigma_bound_fator * N_error_std, 'r')
@@ -193,8 +231,11 @@ def joint_kf_vio_mc_plotter(
 
     # East
     plt.figure()
+    plt.plot(t, E_error_mc_ins, linewidth=1, alpha=0.4, color="#94C0E9",)
     plt.plot(t, E_error_mc, linewidth=1, alpha=0.4, color='gray')
     plt.plot(t, E_error_mc_vio, linewidth=1, alpha=0.4, color='#021D30')
+    plt.plot(t, E_error_mean_ins + sigma_bound_fator * E_error_std_ins, color='m', label='INS exp $\pm$'+ str(sigma_bound_fator)+'$\sigma$')
+    plt.plot(t, E_error_mean_ins - sigma_bound_fator * E_error_std_ins, color='m')
     plt.plot(t, E_error_mean + sigma_bound_fator * E_error_std, 'r', label='EKF exp $\pm$'+str(sigma_bound_fator)+'$\sigma$')
     # plt.plot(t, 0 + sigma_bound_fator * E_theo_std, '--k', label='EKF theo $\pm$'+str(sigma_bound_fator)+'$\sigma$')
     plt.plot(t, E_error_mean - sigma_bound_fator * E_error_std, 'r')
@@ -254,8 +295,11 @@ def joint_kf_vio_mc_plotter(
 
     # yaw
     plt.figure()
+    plt.plot(t, np.rad2deg(yaw_error_mc_ins), linewidth=1, alpha=0.4, color="#94C0E9",)
     plt.plot(t, np.rad2deg(yaw_error_mc), linewidth=1, alpha=0.4, color='gray')
     plt.plot(t, np.rad2deg(yaw_error_mc_vio), linewidth=1, alpha=0.4, color="#021D30")
+    plt.plot(t, np.rad2deg(yaw_error_mean_ins + sigma_bound_fator * yaw_error_std_ins), color='m', label='INS exp $\pm$'+ str(sigma_bound_fator)+'$\sigma$')
+    plt.plot(t, np.rad2deg(yaw_error_mean_ins - sigma_bound_fator * yaw_error_std_ins), color='m')
     plt.plot(t, np.rad2deg(yaw_error_mean + sigma_bound_fator * yaw_error_std), 'r', label='EKF exp $\pm$'+str(sigma_bound_fator)+'$\sigma$')
     # plt.plot(t, np.rad2deg(0 + sigma_bound_fator * yaw_theo_std), '--k', label='EKF theo $\pm$'+str(sigma_bound_fator)+'$\sigma$')
     plt.plot(t, np.rad2deg(yaw_error_mean - sigma_bound_fator * yaw_error_std), 'r')
@@ -304,8 +348,11 @@ def joint_kf_vio_mc_plotter(
     if not error_only:
         # North
         plt.figure()
+        plt.plot(t, N_mc_ins, linewidth=1, alpha=0.4, color="#94C0E9",)
         plt.plot(t, N_mc, linewidth=1, alpha=0.4, color='gray')
         plt.plot(t, N_mc_vio, linewidth=1, alpha=0.4, color='#021D30')
+        plt.plot(t, N_mean_ins + sigma_bound_fator * N_std_ins, color='m', label='INS exp $\pm$'+ str(sigma_bound_fator)+'$\sigma$')
+        plt.plot(t, N_mean_ins - sigma_bound_fator * N_std_ins, color='m')
         plt.plot(t, N_mean + sigma_bound_fator * N_std, 'r', label='EKF exp $\pm$'+str(sigma_bound_fator)+'$\sigma$')
         # plt.plot(t, N_mean + sigma_bound_fator * N_theo_std, '--k', label='EKF theo $\pm$'+str(sigma_bound_fator)+'$\sigma$')
         plt.plot(t, N_mean - sigma_bound_fator * N_std, 'r')
@@ -320,8 +367,11 @@ def joint_kf_vio_mc_plotter(
 
         # East
         plt.figure()
+        plt.plot(t, E_mc_ins, linewidth=1, alpha=0.4, color="#94C0E9",)
         plt.plot(t, E_mc, linewidth=1, alpha=0.4, color='gray')
         plt.plot(t, E_mc_vio, linewidth=1, alpha=0.4, color="#021D30")
+        plt.plot(t, E_mean_ins + sigma_bound_fator * E_std_ins, color='m', label='INS exp $\pm$'+ str(sigma_bound_fator)+'$\sigma$')
+        plt.plot(t, E_mean_ins - sigma_bound_fator * E_std_ins, color='m')
         plt.plot(t, E_mean + sigma_bound_fator * E_std, 'r', label='EKF exp $\pm$'+str(sigma_bound_fator)+'$\sigma$')
         # plt.plot(t, E_mean + sigma_bound_fator * E_theo_std, '--k', label='EKF theo $\pm$'+str(sigma_bound_fator)+'$\sigma$')
         plt.plot(t, E_mean - sigma_bound_fator * E_std, 'r')
@@ -381,8 +431,11 @@ def joint_kf_vio_mc_plotter(
 
         # yaw
         plt.figure()
+        plt.plot(t, np.rad2deg(yaw_mc_ins), linewidth=1, alpha=0.4, color="#94C0E9")
         plt.plot(t, np.rad2deg(yaw_mc), linewidth=1, alpha=0.4, color='gray')
         plt.plot(t, np.rad2deg(yaw_mc_vio), linewidth=1, alpha=0.4, color="#021D30")
+        plt.plot(t, np.unwrap(np.rad2deg(yaw_mean_ins + sigma_bound_fator * yaw_std_ins)), color='m', label='INS exp $\pm$'+ str(sigma_bound_fator)+'$\sigma$')
+        plt.plot(t, np.unwrap(np.rad2deg(yaw_mean_ins - sigma_bound_fator * yaw_std_ins)), color='m')
         plt.plot(t, np.rad2deg(yaw_mean + sigma_bound_fator * yaw_std), 'r', label='EKF exp $\pm$'+str(sigma_bound_fator)+'$\sigma$')
         # plt.plot(t, np.rad2deg(yaw_mean + sigma_bound_fator * yaw_theo_std), '--k', label='EKF theo $\pm$'+str(sigma_bound_fator)+'$\sigma$')
         plt.plot(t, np.rad2deg(yaw_mean - sigma_bound_fator * yaw_std), 'r')
