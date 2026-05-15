@@ -23,6 +23,7 @@ from vehiclesim.measurement_modules.NavInertialMeasModule import NavInertialMeas
 from vehiclesim.measurement_modules.NavZuptInertialMeasModule import NavZuptInertialMeasModule
 from vehiclesim.measurement_modules.NavDLVIOMeasModule import NavDLVIOMeasModule
 from vehiclesim.measurement_modules.NavDLHitchMeasModule import NavDLHitchMeasModule
+from vehiclesim.measurement_modules.NavHitchMeasModule import NavHitchMeasModule
 from vehiclesim.measurement_modules.NavVirtualGpsMeasModule import NavVirtualGpsMeasModule
 
 from vehiclesim.measurement_simulations.imu_sim_advanced import simulate_imu_advanced
@@ -34,7 +35,9 @@ from vehiclesim.mc_tools.mc_veh_config import perturb_parameters
 from filter_tools.estimators import Estimators
 
 from trailer_pose_network.models.spacetime.finalized.async_space_time_cross_attention import AsyncSpaceTimeCrossAttention
+from trailer_pose_network.models.spacetime.async_st_ca_rn import AsyncSpaceTimeCrossAttentionResNet
 from trailer_pose_network.models.spacetime.finalized.trailer_hitch_model import HitchModel
+from trailer_pose_network.dataloaders.trailer_hitch_dataloader import HitchDataloader
 
 from trailer_pose_network.dataloaders.asynchronous_temporal_dataloader import AsyncTemporalDataLoader
 
@@ -47,8 +50,8 @@ import matplotlib as mpl
 def run():
     # load data file 
     SET = '6_19_25'
-    SUBSET = '02'
-    CSV = 'D:\\TestingData\\experimental\\40Hz\\original\\'+SET+'\\'+SUBSET+'\\'+SUBSET+'.csv'
+    SUBSET = '05'
+    CSV = 'D:\\TrainingData\\experimental\\40Hz\\original\\'+SET+'\\'+SUBSET+'\\'+SUBSET+'.csv'
     df = pd.read_csv(CSV, dtype={'SUBSET':str}, header='infer')
     t_correction = df['t'].iloc[-1] // 2
 
@@ -95,7 +98,7 @@ def run():
     vn_truth = np.sin(yaw_truth) * vx_truth + np.sin(yaw_truth) * vy_truth
 
     # load 10Hz csv for vio mc
-    VIO_CSV = 'D:\\TestingData\\experimental\\10Hz\\original\\'+SET+'\\'+SUBSET+'\\'+SUBSET+'.csv'
+    VIO_CSV = 'D:\\TrainingData\\experimental\\10Hz\\original\\'+SET+'\\'+SUBSET+'\\'+SUBSET+'.csv'
     vio_df = pd.read_csv(VIO_CSV, dtype={'SUBSET':str}, header='infer')
     L_vio = len(vio_df)
     t_vio = vio_df['t']
@@ -153,6 +156,110 @@ def run():
         return noisy_image
 
     
+    # === VIO/HITCH DATALOADER PARAMETERS ===
+    SEQ_ROOT_PROCESSED = 'D:\\TrainingData\\experimental\\10Hz\\original\\'+SET+'\\'+SUBSET
+    SEQ_ROOT_RAW = 'D:\\TrainingData\\experimental\\40Hz\\original\\'+SET+'\\'+SUBSET
+    SEQ_LOOKBACK = 2
+    IMG_SIZE = (224,224)
+    BATCH_SIZE = 6
+    NUM_WORKERS = 4
+
+    # VIO DATALOADER
+    test_set = AsyncTemporalDataLoader(sequence_root_processed=SEQ_ROOT_PROCESSED,
+                                sequence_root_raw=SEQ_ROOT_RAW,
+                                single_test=True,
+                                sequential_lookback=SEQ_LOOKBACK,
+                                inputs={'cam':True, 'can':True, 'imu':True, 'yaw_hist':False},
+                                transform_img=v2.Compose([
+                                    v2.ToPILImage(),
+                                    v2.Resize(IMG_SIZE),
+                                    v2.ToTensor(),
+                                ]),
+                                # transform_img=v2.Compose([
+                                #     v2.ToPILImage(),
+                                #     v2.Resize(IMG_SIZE),
+                                #     v2.ToImage(),
+                                #     v2.ToDtype(torch.float32, scale=True),
+                                #     v2.Normalize(
+                                #         mean=[0.485, 0.456, 0.406],
+                                #         std=[0.229, 0.224, 0.225]
+                                #     ),
+                                # ]),
+                                preprocess_data=None,
+                            )
+    
+    # HITCH DATALOADER
+    HITCH_IMG_SIZE = (224,224)
+    hitch_set = HitchDataloader(
+        csv_root=SEQ_ROOT_PROCESSED,
+        transforms=v2.Compose([
+            v2.ToPILImage(),
+            v2.Resize(HITCH_IMG_SIZE),
+            v2.ToTensor(),
+        ]),
+    )
+    
+    # === VIO MODEL PARAMETERS ===
+    VIO_WEIGHTS= "C:\\Users\\Tahn\\SoftDevel\\trailer_pose_network\\weights\\experimental\\async_space_time_official\\exp_v1.pth"
+    # VIO_WEIGHTS = "C:\\Users\\Tahn\\SoftDevel\\trailer_pose_network\\weights\\experimental\\async_st_ca_rn_acc_yaw\\async_st_ca_rn_acc_yaw_v4.pth"
+    DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    PATCH_SIZE = 16
+    NUM_FRAMES = 2
+    NUM_IMU_SAMPLES = 5
+    VIO_EMBED_DIM = 384
+    NUM_HEADS = 8
+    DEPTH = 8
+    IN_CHANNELS = 3
+    IMU_CHANNELS = 8
+    DROPOUT = 0.
+    NUM_OUTPUTS = 3
+
+    vio_network_model = AsyncSpaceTimeCrossAttention(
+        img_size=IMG_SIZE,
+        patch_size=PATCH_SIZE,
+        in_channels=IN_CHANNELS,
+        embed_dim=VIO_EMBED_DIM,
+        num_frames=NUM_FRAMES,
+        num_imu_samples=NUM_IMU_SAMPLES,
+        imu_channels=IMU_CHANNELS,
+        num_heads=NUM_HEADS,
+        depth=DEPTH,
+        dropout=DROPOUT,
+    )
+    # vio_network_model = AsyncSpaceTimeCrossAttentionResNet(
+    #     resnet_model=torchvision.models.resnet34(weights=None),
+    #     num_deltas=1,
+    #     img_size=IMG_SIZE,
+    #     seqential_lookback=SEQ_LOOKBACK,
+    #     in_channels=IN_CHANNELS,
+    #     embed_dim=VIO_EMBED_DIM,
+    #     num_frames=NUM_FRAMES,
+    #     num_imu_samples=NUM_IMU_SAMPLES,
+    #     imu_channels=IMU_CHANNELS,
+    #     num_heads=NUM_HEADS,
+    #     depth=DEPTH,
+    #     dropout=DROPOUT,
+    # )
+    vio_network_model = vio_network_model.to(DEVICE)
+    # Load weights
+    vio_state_dict = torch.load(VIO_WEIGHTS)
+    vio_network_model.load_state_dict(vio_state_dict)
+
+
+    
+    # === HITCH MODEL PARAMETERS ===
+    HITCH_WEIGHTS = "C:\\Users\\Tahn\\SoftDevel\\trailer_pose_network\\weights\\experimental\\trailer_hitch\\exp_v0.pth"
+    HITCH_EMBED_DIM = 784
+
+    hitch_network_model = HitchModel(
+        encoder=torchvision.models.mobilenet_v2(weights=None),
+        embed_dim=HITCH_EMBED_DIM,
+        dropout=0.
+    )
+    hitch_network_model = hitch_network_model.to(DEVICE)
+    # Load weights
+    hitch_state_dict = torch.load(HITCH_WEIGHTS)
+    hitch_network_model.load_state_dict(hitch_state_dict)
 
     # === MODEL EKF === 
 
@@ -193,6 +300,29 @@ def run():
             1e-5,
         ])
     )
+    hitch_measurement_module = NavHitchMeasModule(
+        error_model=np.diag([
+            1e-3
+        ])
+    )
+    # for aided ekf
+    # dlvio_measurement_module = NavDLVIOMeasModule(
+    #     network_model=vio_network_model,
+    #     init_states=[N_truth[0], E_truth[0], yaw_truth[0]],
+    #     error_model = np.diag([
+    #         1e-3,
+    #         5e-3,
+
+    #     ])
+    # )
+    # dlhitch_measurement_module = NavDLHitchMeasModule(
+    #     network_model=hitch_network_model,
+    #     hitch_init=hitch_truth[0],
+    #     error_model=np.diag([
+    #         1e-3,
+    #     ])
+    # )
+    
     # Generate new vehicle configs for every MC
     perturbed_vp = perturb_parameters(
         nominal_params=vp_dict,
@@ -252,8 +382,14 @@ def run():
     x_error_.append(x_error)
 
     # ==== FILTER LOOP ====
+    vx_last_set = False
     for k in tqdm(range(0,L-1)):
         # ---- ZUPT ----
+        if np.isnan(vx_truth[k+1]):
+            if not vx_last_set:
+                vx_last = float(vx_truth[k])
+                vx_last_set = True  
+            vx_truth.iloc[k+1] = vx_last
         if vx_truth[k+1] <= vx_thresh:
             # time update
             PHI, F, G, Q = zupt_state_module.generate_state_model()
@@ -300,58 +436,12 @@ def run():
         P_.append(P)
     x_filter_out = np.array(x_).squeeze()
 
-
+    print("EKF Evaluation Complete")
+    
+    
+    
+    
     # === VIO NETWORK ===
-
-    # === DATALOADER PARAMETERS ===
-    SEQ_LOOKBACK = 2
-    IMG_SIZE = (224,224)
-
-    # === VIO MODEL PARAMETERS ===
-    VIO_WEIGHTS= "C:\\Users\\pzt0029\\Documents\\Vehicle_Simulations\\vehiclesim\\vehiclesim\\weights\\exp_vio_v0.pth"
-    DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    PATCH_SIZE = 16
-    NUM_FRAMES = 2
-    NUM_IMU_SAMPLES = 5
-    VIO_EMBED_DIM = 384
-    NUM_HEADS = 8
-    DEPTH = 8
-    IN_CHANNELS = 3
-    IMU_CHANNELS = 8
-    DROPOUT = 0.
-    NUM_OUTPUTS = 3
-
-    vio_network_model = AsyncSpaceTimeCrossAttention(
-        img_size=IMG_SIZE,
-        patch_size=PATCH_SIZE,
-        in_channels=IN_CHANNELS,
-        embed_dim=VIO_EMBED_DIM,
-        num_frames=NUM_FRAMES,
-        num_imu_samples=NUM_IMU_SAMPLES,
-        imu_channels=IMU_CHANNELS,
-        num_heads=NUM_HEADS,
-        depth=DEPTH,
-        dropout=DROPOUT,
-    )
-    vio_network_model = vio_network_model.to(DEVICE)
-    # Load weights
-    vio_state_dict = torch.load(VIO_WEIGHTS)
-    vio_network_model.load_state_dict(vio_state_dict)
-
-    # === HITCH MODEL PARAMETERS ===
-    HITCH_WEIGHTS = "C:\\Users\\pzt0029\\Documents\\Vehicle_Simulations\\vehiclesim\\vehiclesim\\weights\\exp_hitch_v0.pth"
-    HITCH_EMBED_DIM = 784
-
-    hitch_network_model = HitchModel(
-        encoder=torchvision.models.mobilenet_v2(weights=None),
-        embed_dim=HITCH_EMBED_DIM,
-        dropout=0.
-    )
-    hitch_network_model = hitch_network_model.to(DEVICE)
-    # Load weights
-    hitch_state_dict = torch.load(HITCH_WEIGHTS)
-    hitch_network_model.load_state_dict(hitch_state_dict)
-
     # intialize
     x_vio_ = []
     x_error_vio_ = []
@@ -369,251 +459,246 @@ def run():
     x_error_vio_.append(x_error_vio)
 
     # === VIO LOOP === 
-    SEQ_ROOT_PROCESSED = 'D:\\TestingData\\experimental\\10Hz\\original\\'+SET+'\\'+SUBSET
-    SEQ_ROOT_RAW = 'D:\\TestingData\\experimental\\40Hz\\original\\'+SET+'\\'+SUBSET
-    BATCH_SIZE = 6
-    NUM_WORKERS = 4
 
-    test_set = AsyncTemporalDataLoader(sequence_root_processed=SEQ_ROOT_PROCESSED,
-                                        sequence_root_raw=SEQ_ROOT_RAW,
-                                        single_test=True,
-                                        sequential_lookback=NUM_FRAMES,
-                                        inputs={'cam':True, 'can':True, 'imu':True, 'yaw_hist':False},
-                                        # reduce={'target_column':'steer_ang', 'target_size':100},
-                                        transform_img=v2.Compose([
-                                            v2.ToPILImage(),
-                                            v2.Resize(IMG_SIZE),
-                                            v2.ToTensor(),
-                                        ]),
-                                        preprocess_data=None,
-                                    )
     # Generate loaders
     test_loader = DataLoader(test_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS)
-
+    hitch_loader = DataLoader(hitch_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS)
+    
     # evalulate single model
     est_array = []
     truth_array = []
-    print("Evaluating Model ...")
+    print("Evaluating VIO Model ...")
     with torch.no_grad():
         vio_network_model.eval()
-        hitch_network_model.eval()
+        # hitch_network_model.eval()
 
         for t, (x,y) in enumerate(tqdm(test_loader)):
             
             x[0] = x[0].to(device=DEVICE, dtype=torch.float32)
             x[1] = x[1].to(device=DEVICE, dtype=torch.float32)
-            curr_images = x[0][:,-1]
-            curr_images = curr_images.to(device=DEVICE, dtype=torch.float32)
+            # curr_images = x[0][:,-1]
+            # curr_images = curr_images.to(device=DEVICE, dtype=torch.float32)
 
             y = y.to(device=DEVICE, dtype=torch.float32)
 
             trans_est, rot_est = vio_network_model(x)
-            hitch_est = hitch_network_model(curr_images)
+            # hitch_est = hitch_network_model(curr_images)
 
-            est = torch.cat((trans_est, rot_est, hitch_est), dim=1)
+            est = torch.cat((trans_est, rot_est), dim=1)
             est_array.append(est)
             truth_array.append(y)
             
     est_array = torch.cat(est_array).cpu().numpy()
     truth_array = torch.cat(truth_array).cpu().numpy()
 
-    print("Evaluation Complete")
+    print("VIO Evaluation Complete")
 
+    # evalulate single model
+    hitch_est_array = []
+    hitch_truth_array = []
+    print("Evaluating Hitch Model ...")
+    with torch.no_grad():
+        hitch_network_model.eval()
+
+        for t, (x,y) in enumerate(tqdm(hitch_loader)):
+            
+            x = x.to(device=DEVICE, dtype=torch.float32)
+            y = y.to(device=DEVICE, dtype=torch.float32)
+
+            hitch_est = hitch_network_model(x)
+
+            hitch_est_array.append(hitch_est)
+            hitch_truth_array.append(y)
+            
+    hitch_est_array = torch.cat(hitch_est_array).cpu().numpy()
+    hitch_truth_array = torch.cat(hitch_truth_array).cpu().numpy()
+    
+    print("Hitch Evaluation Complete")
+    
     # compute position and yaw from deltas
     dx_body = est_array[:,0]
     dy_body = est_array[:,1]
     dyaw = est_array[:,2]
-    hitch_est = est_array[:,3]
+    hitch_est = hitch_est_array
 
     dx_body_truth = truth_array[:,0]
     dy_body_truth = truth_array[:,1]
     dyaw_truth = truth_array[:,2]
-    hitch_truth = truth_array[:,3]
+    # hitch_truth_ = truth_array[:,3]
 
     # df = pd.read_csv(TEST_CSV)
-    df = test_set.df
     X_est_array = []
     Y_est_array = []
     yaw_est_array = []
-    X_est_array.insert(0,df.iloc[0]["X"])
-    Y_est_array.insert(0,df.iloc[0]["Y"])
-    yaw_est_array.insert(0,df.iloc[0]["yaw"])
+    X_est_array.insert(0,vio_df.iloc[0]["X"])
+    Y_est_array.insert(0,vio_df.iloc[0]["Y"])
+    yaw_est_array.insert(0,vio_df.iloc[0]["yaw"])
 
-    for i in range(1,len(df)):
-        if df['t'].iloc[i] == t_correction: # psuedo GPS correction
-            X_est_array[i-1] = df['X'].iloc[i-1]
-            Y_est_array[i-1] = df['Y'].iloc[i-1]
-            yaw_est_array[i-1] = df['yaw'].iloc[i-1]
+    for i in range(1,len(vio_df)):
+        if vio_df['t'].iloc[i] == t_correction: # psuedo GPS correction
+            X_est_array[i-1] = vio_df['X'].iloc[i-1]
+            Y_est_array[i-1] = vio_df['Y'].iloc[i-1]
+            yaw_est_array[i-1] = vio_df['yaw'].iloc[i-1]
 
         pose_prev = (X_est_array[i-1], Y_est_array[i-1], yaw_est_array[i-1])
         X_est, Y_est = body_to_tangent_frame_translation(pose_prev, dx_body=dx_body[i-1], dy_body=dy_body[i-1])
         yaw_est = yaw_est_array[i-1] + dyaw[i-1]
         
-        X_est_array.append(X_est)
-        Y_est_array.append(Y_est)
-        yaw_est_array.append(yaw_est)
+        X_est_array.append(float(X_est))
+        Y_est_array.append(float(Y_est))
+        yaw_est_array.append(float(yaw_est))
 
     stop=1
-    x_vio_ = [Y_est_array, X_est_array, yaw_est_array, hitch_est]
+    x_vio_ = [Y_est_array, X_est_array, yaw_est_array, hitch_est.squeeze().tolist()]
     x_vio_out = np.array(x_vio_).squeeze().transpose()
 
+    # # === AIDED EKF ===
+    # CSV_10HZ = 'D:\\TrainingData\\experimental\\10Hz\\original\\'+SET+'\\'+SUBSET+'\\'+SUBSET+'.csv'
+    # df_10hz = pd.read_csv(CSV_10HZ, dtype={'SUBSET':str}, header='infer')
+    
+    # times_10hz = df_10hz['t']
+    # mask  = df['t'].isin(times_10hz)
+    # df_filt = df[mask]
+    # L_filt = len(df_filt)
+    # # sensor variables
+    # steer_meas = df_filt['steer_ang'].to_numpy()
+    # vx_truth = df_filt['vx'].to_numpy() + 0.01*np.random.randn(L_filt)
+    # imu_gyro_z = df_filt['imu_gyro_z'].to_numpy()
+    # # etalin variables for truth
+    # N_truth = df_filt['Y'].to_numpy()
+    # E_truth = df_filt['X'].to_numpy()
+    # vy_truth = df_filt['vy'].to_numpy()
+    # yaw_truth = df_filt['yaw'].to_numpy()
+    # yaw_rate_truth = df_filt['yaw_rate'].to_numpy()
+    # hitch_truth = df_filt['hitch'].to_numpy()
+    # hitch_rate_truth = df_filt['hitch_rate'].to_numpy()
+    # # other variables
+    # vx_thresh = 0.5
+    # t = df_filt['t']
+    # t_correction = df_filt['t'].iloc[-1] // 2
+    # dt = round(np.mean(np.diff(t)),3)
+    
+    # # yaw rate from VIO
+    # yaw_rate_vio = dyaw.squeeze() / 0.1
+    # yaw_rate_vio = np.insert(yaw_rate_vio, 0, df['yaw_rate'].iloc[0])
+    # hitch_meas = hitch_est.squeeze()
+    # # yaw_rate_vio = np.random.randn(L_filt)
+    # # yaw_rate_vio = np.random.randn(L_filt)
+    # # hitch_meas = np.random.randn(L_filt)
+    
+    # # storage list
+    # x_ = []
+    # P_ = []
+    # innov_ = []
+    # K_ = []
 
+    # # initialize
+    # x = np.array([
+    #     [N_truth[0]],
+    #     [E_truth[0]],
+    #     [vx_truth[0]],
+    #     [vy_truth[0]],
+    #     [yaw_rate_truth[0]],
+    #     [yaw_truth[0]],
+    #     [hitch_rate_truth[0]],
+    #     [hitch_truth[0]],
+    #     [0]
+    # ])
+    # P = np.diag([
+    #     0.05,# N
+    #     0.05,# E
+    #     0.001,# vx    
+    #     0.01,# vy
+    #     0.0001,# yaw rate
+    #     0.001,# yaw
+    #     0.0001,# hitch_rate
+    #     0.001,# hitch
+    #     1e-5 # bias ar
+    # ])
+    # x_.append(x)
+    # P_.append(P)
+    
+    #     # filter loop
+    # j = 0
+    # inertial_inputs = []
+    # model_preds = []
+    # vx_last_set = False
+    # yaw_prev = df['yaw'].iloc[0]
+    # for k in tqdm(range(0,L_filt-1)):
+    #         # use last vel if nan
+    #     if np.isnan(vx_truth[k+1]):
+    #         if not vx_last_set:
+    #             vx_last = float(vx_truth[k])
+    #             vx_last_set = True  
+    #         vx_truth.iloc[k+1] = vx_last 
+    #     # ---- ZUPT ----
+    #     if vx_truth[k+1] <= vx_thresh:
+    #         # time update
+    #         PHI, F, G, Q = zupt_state_module.generate_state_model()
+    #         u = np.array([[0]])
+    #         x, P = kf_estimator.kf_predict(x, P, PHI, F, G, u, Q)
 
-    # === Aided EKF ===
-    dlvio_measurement_module = NavDLVIOMeasModule(
-        network_model=vio_network_model,
-        init_states=[N_truth[0], E_truth[0], yaw_truth[0]],
-        error_model = np.diag([
-            1e-3,
-            5e-3,
+    #         # measurement update
+    #         z, H, h_x, R = zupt_measurement_module.generate_meas_model(x, yaw_rate_vio[k])
+    #         x, P, innov, K = kf_estimator.kf_update(x, P, z, H, h_x, R)
 
-        ])
-    )
-    dlhitch_measurement_module = NavDLHitchMeasModule(
-        network_model=hitch_network_model,
-        hitch_init=hitch_truth[0],
-        error_model=np.diag([
-            1e-3,
-        ])
-    )
-    # initialize filter
-    x_ = []
-    x_error_ = []
-    P_ = []
+    #     # ---- STANDARD NAV STATE/MEASUREMENT MODEL ----
+    #     else:
+    #         # time update
+    #         PHI, F, G, Q = standard_state_module.generate_state_model(steer_meas[k+1], x, dt)
+    #         u = np.array([[steer_meas[k+1]]]) # single element array for matrix operation
+    #         x, P = kf_estimator.kf_predict(x, P, PHI, F, G, u, Q)
 
-    x = np.array([
-        [N_truth[0]],
-        [E_truth[0]],
-        [vx_truth[0]],
-        [vy_truth[0]],
-        [yaw_rate_truth[0]],
-        [yaw_truth[0]],
-        [hitch_rate_truth[0]],
-        [hitch_truth[0]],
-        [0]
-    ])
-    x_truth = x
-    x_error = x - x_truth
-
-    P = np.diag([
-            0.05,# N
-            0.05,# E
-            0.001,# vx    
-            0.01,# vy
-            0.0001,# yaw rate
-            0.001,# yaw
-            0.0001,# hitch_rate
-            0.001,# hitch
-            1e-6 # bias ar
-    ])
-    P_.append(P)
-    x_.append(x)
-    x_error_.append(x_error)
-
-    # ==== FILTER LOOP ====
-    for k in tqdm(range(0,L-1)):
-        # ---- ZUPT ----
-        if vx_truth[k+1] <= vx_thresh:
-            # time update
-            PHI, F, G, Q = zupt_state_module.generate_state_model()
-            u = np.array([[0]])
-            x, P = kf_estimator.kf_predict(x, P, PHI, F, G, u, Q)
-
-            # measurement update
-            z, H, h_x, R = zupt_measurement_module.generate_meas_model(x, imu.gyro[2,k+1])
-            x, P, innov, K = kf_estimator.kf_update(x, P, z, H, h_x, R)
-
-        # ---- STANDARD NAV STATE/MEASUREMENT MODEL ----
-        else:
-            # time update
-            PHI, F, G, Q = standard_state_module.generate_state_model(steer_truth[k+1], x, dt)
-            u = np.array([[steer_truth[k+1]]]) # single element array for matrix operation
-            x, P = kf_estimator.kf_predict(x, P, PHI, F, G, u, Q)
-
-            # measurement update
-            z, H, h_x, R = vx_measurement_module.generate_meas_model(x, vx_truth[k+1])
-            x, P, innov, K = kf_estimator.kf_update(x, P, z, H, h_x, R)
-            z, H, h_x, R = inertial_measurement_module.generate_meas_model(x, imu.gyro[2,k+1])
-            x, P, innov, K = kf_estimator.kf_update(x, P, z, H, h_x, R)
-
-        if k !=0 and k % 4 == 0:
-            # P[0, 0] *= 2.0  # N
-            # P[1, 1] *= 2.0  # E
-            # P[5, 5] *= 2.0  # yaw
-            idx = j
-            # get inputs from dataloader
-            inputs, _ = test_set.__getitem__(idx)
-            # cast to device
-            inputs[0] = inputs[0].to(device=DEVICE, dtype=torch.float32).unsqueeze(dim=0) # emulates a batchsize of 1
-            # inputs[1] = inputs[1].to(device=DEVICE, dtype=torch.float32).unsqueeze(dim=0) # emulates a batchsize of 1
-            inert_inputs = torch.tensor(np.array(inertial_inputs))
-            inputs[1] = inert_inputs.to(device=DEVICE, dtype=torch.float32).unsqueeze(dim=0)
-
-            # z, H, h_x, R = dyaw_measurement_module.generate_meas_model(x, )
-            # call TTNT measurement module
-            # z, H, h_x, R = dlvio_measurement_module.generate_meas_model(x, P, inputs)
-            z, H, h_x, R = dlvio_measurement_module.generate_meas_model(x, inputs)
-            x, P, innov, K = kf_estimator.kf_update(x, P, z, H, h_x, R)
-
-            image_input = inputs[0][:,-1]
-            image_input = image_input.to(device=DEVICE, dtype=torch.float32)
-            z, H, h_x, R = dlhitch_measurement_module.generate_meas_model(x, image_input)
-            x, P, innov, K = kf_estimator.kf_update(x, P, z, H, h_x, R)
+    #         # measurement update
+    #         z, H, h_x, R = vx_measurement_module.generate_meas_model(x, vx_truth[k+1])
+    #         x, P, innov, K = kf_estimator.kf_update(x, P, z, H, h_x, R)
+    #         z, H, h_x, R = inertial_measurement_module.generate_meas_model(x, yaw_rate_vio[k])
+    #         x, P, innov, K = kf_estimator.kf_update(x, P, z, H, h_x, R)
+        
+    #         z, H, h_x, R = hitch_measurement_module.generate_meas_model(x, hitch_meas[k+1])
+    #         x, P, innov, K = kf_estimator.kf_update(x, P, z, H, h_x, R)
+        
+        
+    #     if df_filt['t'].iloc[k] == t_correction:
+    #         z, H, h_x, R = virtual_gps_measurement_module.generate_meas_model(x, N_truth[k+1], E_truth[k+1], yaw_truth[k+1])
+    #         x, P, innov, K = kf_estimator.kf_update(x, P, z, H, h_x, R)
+    #         # yaw_prev = x[5,0] # update yaw previous as posteriori yaw state
             
-            inertial_inputs = [inertial_inputs[-1]]
-            j += 1
-            
-        if df['t'].iloc[k] == t_correction:
-            z, H, h_x, R = virtual_gps_measurement_module.generate_meas_model(x, N_truth[k+1], E_truth[k+1], yaw_truth[k+1])
-            x, P, innov, K = kf_estimator.kf_update(x, P, z, H, h_x, R)
+    #     x_.append(x)
+    #     P_.append(P)
+    #     K_.append(K)
+    #     innov_.append(innov)
+    # x_aided_out = np.array(x_).squeeze()
 
-        # get truth state for error
-        x_truth = np.array([
-            [N_truth[k+1]],
-            [E_truth[k+1]],
-            [vx_truth[k+1]],
-            [vy_truth[k+1]],
-            [yaw_rate_truth[k+1]],
-            [yaw_truth[k+1]],
-            [hitch_rate_truth[k+1]],
-            [hitch_truth[k+1]],
-            [0]
-        ])
-        x_error = x - x_truth
-
-        x_.append(x)
-        x_error_.append(x_error)
-        P_.append(P)
-
-    x_aided_filter_out = np.array(x_).squeeze()
-
-    return x_filter_out, x_aided_filter_out, x_vio_out
+    return x_filter_out, x_vio_out
 
 
 if __name__ == "__main__":
-    x_filter, x_aided_filter, x_vio_out = run()
+    x_filter_out, x_vio_out = run()
+    
     x_vio = np.linspace(0, 1, len(x_vio_out))
-    x_ekf = np.linspace(0, 1, len(x_filter))
+    # x_aided = np.linspace(0, 1, len(x_aided_out))
+    x_ekf = np.linspace(0, 1, len(x_filter_out))
 
     N_vio_interp = np.interp(x_ekf, x_vio, x_vio_out[:,0])
     E_vio_interp = np.interp(x_ekf, x_vio, x_vio_out[:,1])
     yaw_vio_interp = np.interp(x_ekf, x_vio, x_vio_out[:,2])
     hitch_vio_interp = np.interp(x_ekf, x_vio, x_vio_out[:,3])
 
-    N_filter = x_filter[:,0]
-    E_filter = x_filter[:,1]
-    yaw_filter = x_filter[:,5]
-    hitch_filter = x_filter[:,7]
+    # N_aided_interp = np.interp(x_ekf, x_aided, x_aided_out[:,0])
+    # E_aided_interp = np.interp(x_ekf, x_aided, x_aided_out[:,1])
+    # yaw_aided_interp = np.interp(x_ekf, x_aided, x_aided_out[:,2])
+    # hitch_aided_interp = np.interp(x_ekf, x_aided, x_aided_out[:,3])
 
-    N_filter_aided = x_aided_filter[:,0]
-    E_filter_aided = x_aided_filter[:,1]
-    yaw_filter_aided = x_aided_filter[:,5]
-    hitch_filter_aided = x_aided_filter[:,7]
+    N_filter = x_filter_out[:,0]
+    E_filter = x_filter_out[:,1]
+    yaw_filter = x_filter_out[:,5]
+    hitch_filter = x_filter_out[:,7]
 
-    # truth set
+    # truth set 
     SET = '6_19_25'
-    SUBSET = '02'
-    CSV = 'D:\\TestingData\\experimental\\40Hz\\original\\'+SET+'\\'+SUBSET+'\\'+SUBSET+'.csv'
+    SUBSET = '05'
+    CSV = 'D:\\TrainingData\\experimental\\40Hz\\original\\'+SET+'\\'+SUBSET+'\\'+SUBSET+'.csv'
     df = pd.read_csv(CSV, dtype={'SUBSET':str}, header='infer')
     t = df['t']
     t_correction = df['t'].iloc[-1] // 2
@@ -628,8 +713,8 @@ if __name__ == "__main__":
         return error
     abs_pos_error_filter = compute_abs_pos_error((df['X'], df['Y']), (E_filter, N_filter))
     abs_pos_error_vio = compute_abs_pos_error((df['X'], df['Y']), (E_vio_interp, N_vio_interp))
-    abs_pos_error_filter_aided = compute_abs_pos_error((df['X'], df['Y']), (E_filter_aided, N_filter_aided))
-
+    # abs_pos_error_aided = compute_abs_pos_error((df['X'], df['Y']), (E_aided_interp, N_aided_interp))
+    
     mpl.rcParams['font.size'] = 12          # General font size for all text elements
     mpl.rcParams['axes.labelsize'] = 12     # Font size for axis labels
     mpl.rcParams['xtick.labelsize'] = 12    # Font size for x-axis tick labels
@@ -638,9 +723,9 @@ if __name__ == "__main__":
     plt.figure()
     plt.subplot(211)
     plt.plot(df['X'], df['Y'], '--', linewidth=1.5, label='Truth')
-    plt.plot(E_filter_aided, N_filter_aided, 'm', linewidth=1.5, label='EKF UC')
-    plt.plot(E_filter, N_filter, 'r', linewidth=1.5, label='EKF Ideal')
-    plt.plot(E_vio_interp, N_vio_interp, 'k', linewidth=1.5, label='VIO')
+    plt.plot(E_filter, N_filter, 'r', linewidth=1.5, label='EKF')
+    # plt.plot(E_aided_interp, N_aided_interp, 'cyan', linewidth=1.5, label='EKF Aided')
+    plt.plot(E_vio_interp, N_vio_interp, 'k', linewidth=1.5, label='DL-VIO')
     plt.plot(df['X'].iloc[correction_index], df['Y'].iloc[correction_index], 'o', color='cyan', markersize=5)
     plt.xlabel('East [m]')
     plt.ylabel('North [m]')
@@ -648,9 +733,9 @@ if __name__ == "__main__":
     plt.axis('equal')
     plt.legend()
     plt.subplot(212)
-    plt.plot(t, abs_pos_error_filter_aided , 'm', linewidth=1.5, label='EKF UC')
     plt.plot(t, abs_pos_error_filter, 'r', linewidth=1.5, label='EKF')
-    plt.plot(t, abs_pos_error_vio, 'k', linewidth=1.5, label='VIO')
+    # plt.plot(t, abs_pos_error_aided, 'cyan', linewidth=1.5, label='EKF Aided')
+    plt.plot(t, abs_pos_error_vio, 'k', linewidth=1.5, label='DL-VIO')
     plt.plot(t[correction_index], 0, 'o', color='cyan', markersize=5, label='GNSS')
     plt.xlabel('Time [s]')
     plt.ylabel('Absolute Position Error [m]')
@@ -663,7 +748,7 @@ if __name__ == "__main__":
     plt.subplot(211)
     plt.plot(t, np.rad2deg(df['yaw']), '--', linewidth=1.5, label='Truth')
     plt.plot(t, np.rad2deg(yaw_filter), 'r', linewidth=1.5, label='EKF')
-    plt.plot(t, np.rad2deg(yaw_vio_interp), 'k', linewidth=1.5, label='VIO')
+    plt.plot(t, np.rad2deg(yaw_vio_interp), 'k', linewidth=1.5, label='DL-VIO')
     plt.plot(t[correction_index], np.rad2deg(df['yaw'].iloc[correction_index]), 'o', color='cyan', markersize=5)
     plt.xlabel('Time [s]')
     plt.ylabel('Yaw [deg]')
@@ -671,7 +756,7 @@ if __name__ == "__main__":
     plt.legend()
     plt.subplot(212)
     plt.plot(t, np.rad2deg(yaw_filter) - np.rad2deg(df['yaw']), 'r', linewidth=1.5, label='EKF')
-    plt.plot(t, np.rad2deg(yaw_vio_interp) - np.rad2deg(df['yaw']) , 'k', linewidth=1.5, label='VIO')
+    plt.plot(t, np.rad2deg(yaw_vio_interp) - np.rad2deg(df['yaw']) , 'k', linewidth=1.5, label='DL-VIO')
     plt.plot(t[correction_index], 0, 'o', color='cyan', markersize=5, label='GNSS')
     plt.xlabel('Time [s]')
     plt.ylabel('Yaw Error [deg]')
@@ -683,23 +768,120 @@ if __name__ == "__main__":
     plt.subplot(211)
     plt.plot(t, np.rad2deg(df['hitch']), '--', linewidth=1.5, label='Truth')
     plt.plot(t, np.rad2deg(hitch_filter), 'r', linewidth=1.5, label='EKF')
-    plt.plot(t, np.rad2deg(hitch_vio_interp), 'k', linewidth=1.5, label='VIO')
+    plt.plot(t, np.rad2deg(hitch_vio_interp), 'k', linewidth=1.5, label='DL-VIO')
     plt.plot(t[correction_index], np.rad2deg(df['hitch'].iloc[correction_index]), 'o', color='cyan', markersize=5)
     plt.xlabel('Time [s]')
     plt.ylabel('Hitch [deg]')
     plt.grid(True)
-    plt.legend(loc='upper right')
+    plt.legend()
     plt.subplot(212)
     plt.plot(t, np.rad2deg(hitch_filter) - np.rad2deg(df['hitch']), 'r', linewidth=1.5, label='EKF')
-    plt.plot(t, np.rad2deg(hitch_vio_interp) - np.rad2deg(df['hitch']) , 'k', linewidth=1.5, label='VIO')
+    plt.plot(t, np.rad2deg(hitch_vio_interp) - np.rad2deg(df['hitch']) , 'k', linewidth=1.5, label='DL-VIO')
     plt.plot(t[correction_index], 0, 'o', color='cyan', markersize=5, label='GNSS')
     plt.xlabel('Time [s]')
     plt.ylabel('Hitch Error [deg]')
     plt.grid(True)
     plt.tight_layout()
     plt.show()
-    # plt.legend()
+    
+    # Compute error statistics
+    def rmse(x_true, x_pred):
+        '''
+        Calculates root mean squared error (RMSE)
+        '''
+        return np.sqrt(np.mean((x_true - x_pred)**2))
+    
+    def abs_pos_rmse(abs_pos_error):
+        return np.sqrt(np.mean(abs_pos_error**2))
+    
+    def find_time_before_error_exceeds(val, time, error):
+        indices = [i for i in range(len(error) - 1) if error[i] < val <= error[i + 1]]
+        # return [time[i] for i in indices]
+        return time[indices[0]]
 
+    # EKF stats
+    abs_pos_rmse_filter = abs_pos_rmse(abs_pos_error_filter)
+    north_rmse_filter = rmse(N_filter, df['Y'])
+    east_rmse_filter = rmse(E_filter, df['X'])
+    yaw_rmse_filter = np.rad2deg(rmse(yaw_filter, df['yaw']))
+    hitch_rmse_filter = np.rad2deg(rmse(hitch_filter, df['hitch']))
+    
+    abs_pos_std_filter = np.std(abs_pos_error_filter)
+    yaw_std_filter = np.std(np.rad2deg(yaw_filter - df['yaw']))
+    hitch_std_filter = np.std(np.rad2deg(hitch_filter - df['hitch']))
+    
+    abs_pos_max_filter = np.max(abs_pos_error_filter)
+    yaw_max_filter = np.max(np.rad2deg(yaw_filter - df['yaw']))
+    hitch_max_filter = np.max(np.rad2deg(hitch_filter - df['hitch']))
+    
+    # vio stats
+    abs_pos_rmse_vio = abs_pos_rmse(abs_pos_error_vio)
+    north_rmse_vio = rmse(N_vio_interp, df['Y'])
+    east_rmse_vio = rmse(E_vio_interp, df['X'])
+    yaw_rmse_vio = np.rad2deg(rmse(yaw_vio_interp, df['yaw']))
+    hitch_rmse_vio = np.rad2deg(rmse(hitch_vio_interp, df['hitch']))
+    
+    abs_pos_std_vio = np.std(abs_pos_error_vio)
+    yaw_std_vio = np.std(np.rad2deg(yaw_vio_interp - df['yaw']))
+    hitch_std_vio = np.std(np.rad2deg(hitch_vio_interp - df['hitch']))
+    
+    abs_pos_max_vio = np.max(abs_pos_error_vio)
+    yaw_max_vio = np.max(np.rad2deg(yaw_vio_interp - df['yaw']))
+    hitch_max_vio = np.max(np.rad2deg(hitch_vio_interp - df['hitch']))
+    
+    # time before difts
+    filter_t_1m = find_time_before_error_exceeds(1, t, abs_pos_error_filter)
+    filter_t_5m = find_time_before_error_exceeds(5, t, abs_pos_error_filter)
+    filter_t_10m = find_time_before_error_exceeds(10, t, abs_pos_error_filter)
+    
+    vio_t_1m = find_time_before_error_exceeds(1, t, abs_pos_error_vio)
+    vio_t_5m = find_time_before_error_exceeds(5, t, abs_pos_error_vio)
+    vio_t_10m = find_time_before_error_exceeds(10, t, abs_pos_error_vio)
+    
+    print(f'Filter Error Statistics')
+    print('=='*10)
+    print(f'RMSES: Position: {abs_pos_rmse_filter}, Yaw: {yaw_rmse_filter}, Hitch: {hitch_rmse_filter}')
+    print(f'STD: Position: {abs_pos_std_filter}, Yaw: {yaw_std_filter}, Hitch: {hitch_std_filter}')
+    print(f'Max Error: Position: {abs_pos_max_filter}, Yaw: {yaw_max_filter}, Hitch: {hitch_max_filter}')
+    
+    print()
+    
+    print(f'VIO Error Statistics')
+    print('=='*10)
+    print(f'RMSES: Position: {abs_pos_rmse_vio}, Yaw: {yaw_rmse_vio}, Hitch: {hitch_rmse_vio}')
+    print(f'STD: Position: {abs_pos_std_vio}, Yaw: {yaw_std_vio}, Hitch: {hitch_std_vio}')
+    print(f'Max Error: Position: {abs_pos_max_vio}, Yaw: {yaw_max_vio}, Hitch: {hitch_max_vio}')
+    
+    print()
+    print(f'Drift Time Statistics')
+    print('=='*10)
+    print(f'Filter Drift')
+    print('--'*10)
+    print(f'Times until: 1 meter: {filter_t_1m}, 5 meters: {filter_t_5m}, 10 meters: {filter_t_10m}')
+    print(f'VIO Drift')
+    print('--'*10)
+    print(f'Times until: 1 meter: {vio_t_1m}, 5 meters: {vio_t_5m}, 10 meters: {vio_t_10m}')
+    
+    # save results log
+    results = {
+        'N_filter':N_filter,
+        'E_filter':E_filter,
+        'yaw_filter':yaw_filter, 
+        'hitch_filter':hitch_filter, 
+        'N_vio_interp':N_vio_interp, 
+        'E_vio_interp':E_vio_interp, 
+        'yaw_vio_interp':yaw_vio_interp, 
+        'hitch_vio_interp':hitch_vio_interp,
+    }
+    SAVE_RESULTS_PATH = "C:\\Users\\Tahn\\SoftDevel\\vehiclesim\\evaluations\\exp_evals\\S5\\exp_results_S5.pkl"
+    # SAVE_RESULTS_PATH = None
+    if SAVE_RESULTS_PATH is not None:
+        with open(SAVE_RESULTS_PATH, 'wb') as file:
+            pickle.dump(results, file)
+        print(f'Exp Results saved to {SAVE_RESULTS_PATH}')
+    
+    
+    
 # # ==== VIO LOOP ====
 # for j in tqdm(range(0,L_vio-1)):
 #     # extract the inertial measurements by matching times
@@ -793,3 +975,5 @@ if __name__ == "__main__":
 #         x_error_vio = x_vio - x_truth_vio
 #         x_vio_.append(x_vio)
 #         x_error_vio_.append(x_error_vio)
+
+# %%
